@@ -1,0 +1,540 @@
+<Window x:Class="ExecutePrograms.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ExecutePrograms" Height="860" Width="740"
+        MinHeight="640" MinWidth="620"
+        Background="#F0F2F5">
+
+    <Window.Resources>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#24292F"/>
+        </Style>
+
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style TargetType="PasswordBox">
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="6,0"/>
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="White"/>
+        </Style>
+
+        <Style x:Key="BrowseBtn" TargetType="Button">
+            <Setter Property="Width" Value="60"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Margin" Value="6,0,0,0"/>
+            <Setter Property="Content" Value="찾기"/>
+            <Setter Property="Background" Value="#F6F8FA"/>
+            <Setter Property="Foreground" Value="#24292F"/>
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E6EBF0"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Normal"/>
+            <Setter Property="Foreground" Value="#57606A"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+
+        <!-- 고정 명령어 표시 박스 -->
+        <Style x:Key="CmdBorder" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#D0D7DE"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Background" Value="#F6F8FA"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="CmdText" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#656D76"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- 프로그램 섹션 내부 구분 박스 -->
+        <Style x:Key="PrgBlock" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#E8EBEF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Background" Value="#FAFBFC"/>
+        </Style>
+
+        <Style x:Key="PrgLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#24292F"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="ExeFixedLabel" TargetType="TextBlock">
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#57606A"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="220"/>
+        </Grid.RowDefinitions>
+
+        <!-- ── 실행 버튼 ── -->
+        <Button x:Name="ExecuteBtn" Grid.Row="0"
+                Content="▶  실행"
+                Height="44" Margin="0,0,0,8"
+                FontSize="15" FontWeight="Bold"
+                Click="ExecuteBtn_Click">
+            <Button.Style>
+                <Style TargetType="Button">
+                    <Setter Property="Background" Value="#1F6FEB"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderThickness" Value="0"/>
+                    <Setter Property="Cursor" Value="Hand"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#1A5FCC"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Background" Value="#8BB4F0"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
+        </Button>
+
+        <!-- ── 실행 흐름 바 ── -->
+        <Border Grid.Row="1" Background="White" BorderBrush="#D0D7DE" BorderThickness="1"
+                CornerRadius="6" Margin="0,0,0,8" Padding="14,9">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+
+                <Border x:Name="Step1Border" Background="#F6F8FA" BorderBrush="#D0D7DE"
+                        BorderThickness="1" CornerRadius="4" Padding="12,4">
+                    <TextBlock x:Name="Step1Text" Text="① 종료" Foreground="#8B949E"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <TextBlock Text="  ──▶  " VerticalAlignment="Center" Foreground="#C0C8D0" FontSize="13"/>
+
+                <Border x:Name="Step2Border" Background="#F6F8FA" BorderBrush="#D0D7DE"
+                        BorderThickness="1" CornerRadius="4" Padding="12,4">
+                    <TextBlock x:Name="Step2Text" Text="② xms DB" Foreground="#8B949E"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <TextBlock Text="  ──▶  " VerticalAlignment="Center" Foreground="#C0C8D0" FontSize="13"/>
+
+                <Border x:Name="Step3Border" Background="#F6F8FA" BorderBrush="#D0D7DE"
+                        BorderThickness="1" CornerRadius="4" Padding="12,4">
+                    <TextBlock x:Name="Step3Text" Text="③ xflow DB" Foreground="#8B949E"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <TextBlock Text="  ──▶  " VerticalAlignment="Center" Foreground="#C0C8D0" FontSize="13"/>
+
+                <Border x:Name="Step4Border" Background="#F6F8FA" BorderBrush="#D0D7DE"
+                        BorderThickness="1" CornerRadius="4" Padding="12,4">
+                    <TextBlock x:Name="Step4Text" Text="④ SQL" Foreground="#8B949E"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+                <TextBlock Text="  ──▶  " VerticalAlignment="Center" Foreground="#C0C8D0" FontSize="13"/>
+
+                <Border x:Name="Step5Border" Background="#F6F8FA" BorderBrush="#D0D7DE"
+                        BorderThickness="1" CornerRadius="4" Padding="12,4">
+                    <TextBlock x:Name="Step5Text" Text="⑤ 시작" Foreground="#8B949E"
+                               FontSize="12" FontWeight="SemiBold"/>
+                </Border>
+
+            </StackPanel>
+        </Border>
+
+        <!-- ── 설정 영역 ── -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+            <StackPanel>
+
+                <!-- 실행 설정 -->
+                <GroupBox>
+                    <GroupBox.Header>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#D73A3A" CornerRadius="3" Padding="5,1" Margin="0,0,4,0">
+                                <TextBlock Text="①" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <Border Background="#2DA44E" CornerRadius="3" Padding="5,1" Margin="0,0,8,0">
+                                <TextBlock Text="⑤" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <TextBlock Text="실행 설정" FontWeight="SemiBold" Foreground="#24292F" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </GroupBox.Header>
+                    <StackPanel>
+
+                        <!-- ── BAT ── -->
+                        <Border Style="{StaticResource PrgBlock}">
+                            <StackPanel>
+                                <TextBlock Text="● BAT  (start.bat / stop.bat)" Style="{StaticResource PrgLabel}"/>
+
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                                    <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                            Click="BrowseBatDir_Click"/>
+                                    <TextBox x:Name="BatDir"
+                                             Text="C:\Project\Release\xms"
+                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,4">
+                                    <CheckBox x:Name="BatStartCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="시작" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}" Text=".\start.bat"/>
+                                    </Border>
+                                </DockPanel>
+
+                                <DockPanel>
+                                    <CheckBox x:Name="BatStopCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="종료" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}" Text=".\stop.bat"/>
+                                    </Border>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── xflowd EXE ── -->
+                        <Border Style="{StaticResource PrgBlock}">
+                            <StackPanel>
+                                <TextBlock Text="● xflowd  (EXE)" Style="{StaticResource PrgLabel}"/>
+
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                                    <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                            Click="BrowseExeDir_Click"/>
+                                    <TextBox x:Name="ExeDir"
+                                             Text="C:\Project\xflow\Src\xflowd\bin\Debug\net10.0"
+                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,4">
+                                    <CheckBox x:Name="ExeStartCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="시작" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}" Text=".\xflowd.exe"/>
+                                    </Border>
+                                </DockPanel>
+
+                                <DockPanel>
+                                    <CheckBox x:Name="ExeStopCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="종료" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}"
+                                                   Text="xflowd.exe 프로세스 종료"/>
+                                    </Border>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ── FEX ── -->
+                        <Border Style="{StaticResource PrgBlock}" Margin="0,0,0,0">
+                            <StackPanel>
+                                <TextBlock Text="● FEX  (GUI)" Style="{StaticResource PrgLabel}"/>
+
+                                <DockPanel Margin="0,0,0,8">
+                                    <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                                    <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                            Click="BrowseFexDir_Click"/>
+                                    <TextBox x:Name="FexDir"
+                                             Text="C:\DAIM\FexHub\Fex\Release\1.14.6.208"
+                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                </DockPanel>
+
+                                <DockPanel Margin="0,0,0,4">
+                                    <CheckBox x:Name="FexStartCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="시작" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}" Text="Fex.exe"/>
+                                    </Border>
+                                </DockPanel>
+
+                                <DockPanel>
+                                    <CheckBox x:Name="FexStopCheck" IsChecked="True" DockPanel.Dock="Left"
+                                              VerticalAlignment="Center" Margin="0,0,10,0"/>
+                                    <TextBlock Text="종료" Style="{StaticResource FieldLabel}"
+                                               Width="36" DockPanel.Dock="Left"/>
+                                    <Border Style="{StaticResource CmdBorder}">
+                                        <TextBlock Style="{StaticResource CmdText}"
+                                                   Text="Fex.exe 프로세스 종료"/>
+                                    </Border>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- xms 설정 -->
+                <GroupBox>
+                    <GroupBox.Header>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#1F6FEB" CornerRadius="3" Padding="5,1" Margin="0,0,8,0">
+                                <TextBlock Text="②" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <TextBlock Text="xms 설정" FontWeight="SemiBold" Foreground="#24292F" VerticalAlignment="Center"/>
+                            <Border Background="#FFF3E0" BorderBrush="#FFB74D" BorderThickness="1"
+                                    CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                                <TextBlock Text="BAT 종료 시 실행" FontSize="10" Foreground="#E65100"/>
+                            </Border>
+                        </StackPanel>
+                    </GroupBox.Header>
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                            <TextBlock Text="C:\Project\Release\xms\xms"
+                                       Style="{StaticResource ExeFixedLabel}"/>
+                        </DockPanel>
+
+                        <DockPanel Margin="0,6,0,10">
+                            <TextBlock Text="Map (.json)" Style="{StaticResource FieldLabel}" Width="72"/>
+                            <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                    Click="BrowseXmsMap_Click"/>
+                            <TextBox x:Name="XmsMapPath" IsReadOnly="True" Foreground="#57606A"
+                                     Background="#FAFBFC"
+                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        </DockPanel>
+
+                        <TextBlock Text="명령어 1" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                        <Border Style="{StaticResource CmdBorder}">
+                            <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe db drop -a"/>
+                        </Border>
+
+                        <TextBlock Text="명령어 2" Style="{StaticResource FieldLabel}" Margin="0,8,0,4"/>
+                        <Border Style="{StaticResource CmdBorder}">
+                            <TextBlock x:Name="XmsCmd2Preview" Style="{StaticResource CmdText}"
+                                       Text='.\xms.exe db create "[Map .json 파일을 선택하세요]"'/>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- xflow 설정 -->
+                <GroupBox>
+                    <GroupBox.Header>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#8250DF" CornerRadius="3" Padding="5,1" Margin="0,0,8,0">
+                                <TextBlock Text="③" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <TextBlock Text="xflow 설정" FontWeight="SemiBold" Foreground="#24292F" VerticalAlignment="Center"/>
+                            <Border Background="#FFF3E0" BorderBrush="#FFB74D" BorderThickness="1"
+                                    CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                                <TextBlock Text="xflowd 종료 시 실행" FontSize="10" Foreground="#E65100"/>
+                            </Border>
+                        </StackPanel>
+                    </GroupBox.Header>
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                            <TextBlock Text="C:\Project\xflow\Src\xflow\bin\Debug\net10.0"
+                                       Style="{StaticResource ExeFixedLabel}"/>
+                        </DockPanel>
+
+                        <DockPanel Margin="0,6,0,10">
+                            <TextBlock Text="Map (.json)" Style="{StaticResource FieldLabel}" Width="72"/>
+                            <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                    Click="BrowseXflowMap_Click"/>
+                            <TextBox x:Name="XflowMapPath" IsReadOnly="True" Foreground="#57606A"
+                                     Background="#FAFBFC"
+                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        </DockPanel>
+
+                        <TextBlock Text="명령어 1" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                        <Border Style="{StaticResource CmdBorder}">
+                            <TextBlock Style="{StaticResource CmdText}" Text=".\xflow.exe db admin drop -a"/>
+                        </Border>
+
+                        <TextBlock Text="명령어 2" Style="{StaticResource FieldLabel}" Margin="0,8,0,4"/>
+                        <Border Style="{StaticResource CmdBorder}">
+                            <TextBlock x:Name="XflowCmd2Preview" Style="{StaticResource CmdText}"
+                                       Text='.\xflow.exe db create -m "[Map .json 파일을 선택하세요]"'/>
+                        </Border>
+                    </StackPanel>
+                </GroupBox>
+
+                <!-- PostgreSQL -->
+                <GroupBox>
+                    <GroupBox.Header>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Border Background="#0A8070" CornerRadius="3" Padding="5,1" Margin="0,0,8,0">
+                                <TextBlock Text="④" FontSize="11" FontWeight="Bold" Foreground="White"/>
+                            </Border>
+                            <TextBlock Text="PostgreSQL 설정" FontWeight="SemiBold" Foreground="#24292F" VerticalAlignment="Center"/>
+                            <Border Background="#FFF3E0" BorderBrush="#FFB74D" BorderThickness="1"
+                                    CornerRadius="3" Padding="5,1" Margin="8,0,0,0">
+                                <TextBlock Text="xflowd 종료 시 실행" FontSize="10" Foreground="#E65100"/>
+                            </Border>
+                        </StackPanel>
+                    </GroupBox.Header>
+                    <StackPanel>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="90"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Host" Style="{StaticResource FieldLabel}"/>
+                            <TextBox   Grid.Column="1" x:Name="DbHost" Text="localhost" Margin="0,0,12,0"/>
+                            <TextBlock Grid.Column="2" Text="Port"  Style="{StaticResource FieldLabel}"/>
+                            <TextBox   Grid.Column="3" x:Name="DbPort" Text="5432"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="50"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Database" Style="{StaticResource FieldLabel}"/>
+                            <TextBox   Grid.Column="1" x:Name="DbName" Text="xflow" Margin="0,0,12,0"/>
+                            <TextBlock Grid.Column="2" Text="User"  Style="{StaticResource FieldLabel}"/>
+                            <TextBox   Grid.Column="3" x:Name="DbUser" Text="postgres"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Password" Style="{StaticResource FieldLabel}"/>
+                            <PasswordBox Grid.Column="1" x:Name="DbPassword"/>
+                        </Grid>
+
+                        <DockPanel>
+                            <TextBlock Text="SQL 파일" Style="{StaticResource FieldLabel}" Width="60"/>
+                            <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                    Click="BrowseSqlFile_Click"/>
+                            <TextBox x:Name="SqlFilePath" IsReadOnly="True" Foreground="#57606A"
+                                     Background="#FAFBFC"
+                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                        </DockPanel>
+                    </StackPanel>
+                </GroupBox>
+
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- ── 로그 영역 ── -->
+        <Border Grid.Row="3" BorderBrush="#30363D" BorderThickness="1"
+                CornerRadius="6" Background="#0D1117" Margin="0"
+                ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <!-- 터미널 헤더 -->
+                <Border Grid.Row="0" Background="#161B22" Padding="12,7"
+                        BorderBrush="#30363D" BorderThickness="0,0,0,1">
+                    <DockPanel>
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                            <Ellipse Width="11" Height="11" Fill="#FF5F57" Margin="0,0,6,0"/>
+                            <Ellipse Width="11" Height="11" Fill="#FEBC2E" Margin="0,0,6,0"/>
+                            <Ellipse Width="11" Height="11" Fill="#28C840" Margin="0,0,16,0"/>
+                            <TextBlock Text="실행 로그" Foreground="#6E7681"
+                                       FontFamily="Consolas" FontSize="12"/>
+                        </StackPanel>
+                        <Button DockPanel.Dock="Right" Content="지우기"
+                                Click="LogClear_Click"
+                                VerticalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="FontSize" Value="11"/>
+                                    <Setter Property="Padding" Value="10,3"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="Bd" Background="Transparent"
+                                                        BorderBrush="#30363D" BorderThickness="1"
+                                                        CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                    <TextBlock x:Name="Tx" Text="{TemplateBinding Content}"
+                                                               Foreground="#6E7681" FontSize="{TemplateBinding FontSize}"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="BorderBrush" Value="#58A6FF"/>
+                                                        <Setter TargetName="Tx" Property="Foreground" Value="#79C0FF"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </DockPanel>
+                </Border>
+
+                <!-- 로그 출력 -->
+                <ScrollViewer Grid.Row="1" x:Name="LogScroll"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled"
+                              Background="#0D1117">
+                    <TextBox x:Name="LogBox"
+                             Height="Auto"
+                             MinHeight="100"
+                             IsReadOnly="True"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             VerticalAlignment="Stretch"
+                             Background="#0D1117"
+                             Foreground="#C9D1D9"
+                             FontFamily="Consolas"
+                             FontSize="12"
+                             BorderThickness="0"
+                             Padding="12,10"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
