@@ -33,9 +33,10 @@ public class ProcessLauncher(Action<string> log)
     {
         log($"  ▶ BAT 실행: {batFile}");
 
-        var psi = new ProcessStartInfo(Path.Combine(directory, batFile))
+        var psi = new ProcessStartInfo("cmd.exe", $"/c \"{Path.Combine(directory, batFile)}\"")
         {
-            UseShellExecute  = true,
+            UseShellExecute  = false,
+            CreateNoWindow   = true,
             WorkingDirectory = directory
         };
 
