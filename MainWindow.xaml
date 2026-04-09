@@ -280,6 +280,9 @@
                                     <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
                                     <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
                                             Click="BrowseFexDir_Click"/>
+                                    <Button Content="자동" DockPanel.Dock="Right"
+                                            Click="AutoDetectFexDir_Click"
+                                            Style="{StaticResource BrowseBtn}"/>
                                     <TextBox x:Name="FexDir"
                                              Text="C:\DAIM\FexHub\Fex\Release\1.14.6.208"
                                              ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>

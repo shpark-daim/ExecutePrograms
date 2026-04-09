@@ -157,6 +157,35 @@ public partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void AutoDetectFexDir_Click(object sender, RoutedEventArgs e)
+    {
+        var parentPath = Path.GetDirectoryName(FexDir.Text.TrimEnd('\\', '/'));
+        if (string.IsNullOrEmpty(parentPath) || !Directory.Exists(parentPath))
+            parentPath = @"C:\DAIM\FexHub\Fex\Release";
+
+        if (!Directory.Exists(parentPath))
+        {
+            MessageBox.Show($"경로를 찾을 수 없습니다:\n{parentPath}", "자동 감지 실패",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var latest = Directory.GetDirectories(parentPath)
+            .Where(d => Version.TryParse(Path.GetFileName(d), out _))
+            .OrderByDescending(d => Version.Parse(Path.GetFileName(d)))
+            .FirstOrDefault();
+
+        if (latest == null)
+        {
+            MessageBox.Show($"버전 폴더를 찾을 수 없습니다:\n{parentPath}", "자동 감지 실패",
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        FexDir.Text = latest;
+        SaveSettings();
+    }
+
     // ── 실행 버튼 ────────────────────────────────────────
 
     private async void ExecuteBtn_Click(object sender, RoutedEventArgs e)
