@@ -479,20 +479,18 @@
                 <Border Grid.Row="0" Background="#161B22" Padding="12,7"
                         BorderBrush="#30363D" BorderThickness="0,0,0,1">
                     <DockPanel>
-                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                            <Ellipse Width="11" Height="11" Fill="#FF5F57" Margin="0,0,6,0"/>
-                            <Ellipse Width="11" Height="11" Fill="#FEBC2E" Margin="0,0,6,0"/>
-                            <Ellipse Width="11" Height="11" Fill="#28C840" Margin="0,0,16,0"/>
-                            <TextBlock Text="실행 로그" Foreground="#6E7681"
-                                       FontFamily="Consolas" FontSize="12"/>
-                        </StackPanel>
-                        <Button DockPanel.Dock="Right" Content="지우기"
+                        <TextBlock Text="실행 로그" DockPanel.Dock="Left" VerticalAlignment="Center"
+                                   Foreground="#6E7681" FontFamily="Consolas" FontSize="12"/>
+                        <Button DockPanel.Dock="Left" Content="지우기"
+                                Width="50"
                                 Click="LogClear_Click"
-                                VerticalAlignment="Center">
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Margin="10,0,0,0">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="FontSize" Value="11"/>
-                                    <Setter Property="Padding" Value="10,3"/>
+                                    <Setter Property="Padding" Value="6,3"/>
                                     <Setter Property="Cursor" Value="Hand"/>
                                     <Setter Property="Template">
                                         <Setter.Value>
