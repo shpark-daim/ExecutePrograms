@@ -28,4 +28,7 @@ public class AppSettings
     public bool ExeStop  { get; set; } = true;
     public bool FexStart { get; set; } = true;
     public bool FexStop  { get; set; } = true;
+
+    // 추가 프로그램 목록
+    public List<ExtraProgram> ExtraPrograms { get; set; } = [new ExtraProgram()];
 }

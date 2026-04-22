@@ -239,6 +239,32 @@ public partial class MainWindow : Window
     }
 
 
+    // ── 추가 프로그램 핸들러 ─────────────────────────────────
+
+    private void AddExtraProgram_Click(object sender, RoutedEventArgs e)
+    {
+        _extraPrograms.Add(new ExtraProgram());
+        SaveSettings();
+    }
+
+    private void BrowseExtraExe_Click(object sender, RoutedEventArgs e)
+    {
+        var item = (ExtraProgram)((FrameworkElement)sender).DataContext;
+        var dlg  = new OpenFileDialog { Filter = "실행 파일 (*.exe)|*.exe|모든 파일|*.*" };
+        if (dlg.ShowDialog() != true) return;
+        item.ExePath = dlg.FileName;
+        if (string.IsNullOrEmpty(item.DisplayName))
+            item.DisplayName = Path.GetFileNameWithoutExtension(dlg.FileName);
+        SaveSettings();
+    }
+
+    private void RemoveExtraProgram_Click(object sender, RoutedEventArgs e)
+    {
+        var item = (ExtraProgram)((FrameworkElement)sender).DataContext;
+        _extraPrograms.Remove(item);
+        SaveSettings();
+    }
+
     // ── 프로필 버튼 핸들러 ────────────────────────────────
 
     private void SaveProfile_Click(object sender, RoutedEventArgs e)
@@ -345,6 +371,17 @@ public partial class MainWindow : Window
         }
         else Log("  FEX — 건너뜀");
 
+        foreach (var p in _extraPrograms.Where(p => p.StopEnabled && !string.IsNullOrWhiteSpace(p.ExePath)))
+        {
+            try
+            {
+                var label = string.IsNullOrWhiteSpace(p.DisplayName) ? p.FileName : p.DisplayName;
+                Log($"  {label} 종료");
+                await prg.KillProcessByNameAsync(p.FileName);
+            }
+            catch (Exception ex) { Log($"  ⚠ 건너뜀: {ex.Message}"); }
+        }
+
         SetStep(1, StepState.Done);
 
         // ② xms DB  — BAT 종료가 체크된 경우에만 실행
@@ -449,6 +486,14 @@ public partial class MainWindow : Window
                 await prg.StartInDirAsync(FexDir.Text, "Fex.exe");
             }
             else Log("  FEX — 건너뜀");
+
+            foreach (var p in _extraPrograms.Where(p => p.StartEnabled && !string.IsNullOrWhiteSpace(p.ExePath)))
+            {
+                var dir   = Path.GetDirectoryName(p.ExePath) ?? "";
+                var label = string.IsNullOrWhiteSpace(p.DisplayName) ? p.FileName : p.DisplayName;
+                Log($"  {label} 실행");
+                await prg.StartInDirAsync(dir, p.FileName, p.ShowWindow);
+            }
 
             SetStep(5, StepState.Done);
         }
