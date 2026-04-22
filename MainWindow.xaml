@@ -1,6 +1,7 @@
 <Window x:Class="ExecutePrograms.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:models="clr-namespace:ExecutePrograms.Models"
         Title="ExecutePrograms" Height="860" Width="740"
         MinHeight="640" MinWidth="620"
         Background="#F0F2F5">
@@ -107,14 +108,71 @@
 
     <Grid Margin="12">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="220"/>
+            <RowDefinition Height="Auto"/>   <!-- 0: 프로필 바 -->
+            <RowDefinition Height="Auto"/>   <!-- 1: 실행 버튼 -->
+            <RowDefinition Height="Auto"/>   <!-- 2: 실행 흐름 바 -->
+            <RowDefinition Height="*"/>      <!-- 3: 설정 영역 -->
+            <RowDefinition Height="220"/>    <!-- 4: 로그 영역 -->
         </Grid.RowDefinitions>
 
+        <!-- ── 프로필 바 ── -->
+        <Border Grid.Row="0" Background="White" BorderBrush="#D0D7DE" BorderThickness="1"
+                CornerRadius="6" Margin="0,0,0,8" Padding="14,10">
+            <DockPanel>
+                <TextBlock Text="프로필" VerticalAlignment="Center"
+                           FontSize="12" FontWeight="SemiBold" Foreground="#57606A"
+                           Margin="0,0,12,0"/>
+                <Rectangle DockPanel.Dock="Left" Width="1" Fill="#D0D7DE" Margin="0,0,12,0"/>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <ComboBox x:Name="ProfileComboBox"
+                              IsEditable="True"
+                              Width="200" Height="30"
+                              VerticalContentAlignment="Center"
+                              Padding="6,0" FontSize="12"
+                              ToolTip="프로필 이름을 선택하거나 새 이름을 입력하세요"
+                              SelectionChanged="ProfileComboBox_SelectionChanged"/>
+                    <Button Content="저장" Width="52" Height="30" Margin="6,0,0,0"
+                            FontSize="12" ToolTip="현재 설정을 이 이름으로 저장"
+                            Click="SaveProfile_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#2DA44E"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#238840"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    <Button Content="삭제" Width="52" Height="30" Margin="4,0,0,0"
+                            FontSize="12" ToolTip="선택한 프로필 삭제"
+                            Click="DeleteProfile_Click">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="#F6F8FA"/>
+                                <Setter Property="Foreground" Value="#CF222E"/>
+                                <Setter Property="BorderBrush" Value="#D0D7DE"/>
+                                <Setter Property="BorderThickness" Value="1"/>
+                                <Setter Property="Cursor" Value="Hand"/>
+                                <Style.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="#FFEBE9"/>
+                                        <Setter Property="BorderBrush" Value="#CF222E"/>
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
         <!-- ── 실행 버튼 ── -->
-        <Button x:Name="ExecuteBtn" Grid.Row="0"
+        <Button x:Name="ExecuteBtn" Grid.Row="1"
                 Content="▶  실행"
                 Height="44" Margin="0,0,0,8"
                 FontSize="15" FontWeight="Bold"
@@ -138,7 +196,7 @@
         </Button>
 
         <!-- ── 실행 흐름 바 ── -->
-        <Border Grid.Row="1" Background="White" BorderBrush="#D0D7DE" BorderThickness="1"
+        <Border Grid.Row="2" Background="White" BorderBrush="#D0D7DE" BorderThickness="1"
                 CornerRadius="6" Margin="0,0,0,8" Padding="14,9">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
 
@@ -180,7 +238,7 @@
         </Border>
 
         <!-- ── 설정 영역 ── -->
-        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+        <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
             <StackPanel>
 
                 <!-- 실행 설정 -->
@@ -466,7 +524,7 @@
         </ScrollViewer>
 
         <!-- ── 로그 영역 ── -->
-        <Border Grid.Row="3" BorderBrush="#30363D" BorderThickness="1"
+        <Border Grid.Row="4" BorderBrush="#30363D" BorderThickness="1"
                 CornerRadius="6" Background="#0D1117" Margin="0"
                 ClipToBounds="True">
             <Grid>

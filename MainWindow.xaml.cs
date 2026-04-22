@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -16,14 +17,21 @@ public partial class MainWindow : Window
     private const string XmsExeDir   = @"C:\Project\Release\xms\xms";
     private const string XflowExeDir = @"C:\Project\xflow\Src\xflow\bin\Debug\net10.0";
 
-    private static readonly string SettingsPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        "ExecutePrograms", "settings.json");
+    private static readonly string AppDir      = AppContext.BaseDirectory;
+    private static readonly string SettingsPath = Path.Combine(AppDir, "settings.json");
+    private static readonly string ProfilesPath = Path.Combine(AppDir, "profiles.json");
+
+    private Dictionary<string, AppSettings> _profiles = new();
+    private bool _suppressProfileSelection = false;
+
+    private readonly ObservableCollection<ExtraProgram> _extraPrograms = new();
 
     public MainWindow()
     {
         InitializeComponent();
+        ExtraProgramsList.ItemsSource = _extraPrograms;
         LoadSettings();
+        LoadProfiles();
         Closing += (_, _) => SaveSettings();
     }
 
@@ -34,38 +42,9 @@ public partial class MainWindow : Window
         try
         {
             AppSettings s = new();
-
             if (File.Exists(SettingsPath))
                 s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings();
-
-            // 경로
-            XmsMapPath.Text   = s.XmsMapPath;
-            XflowMapPath.Text = s.XflowMapPath;
-            SqlFilePath.Text  = s.SqlFilePath;
-            BatDir.Text       = s.BatDir;
-            ExeDir.Text       = s.ExeDir;
-            FexDir.Text       = s.FexDir;
-
-            // DB
-            DbHost.Text         = s.DbHost;
-            DbPort.Text         = s.DbPort;
-            DbName.Text         = s.DbName;
-            DbUser.Text         = s.DbUser;
-            DbPassword.Password = s.DbPassword;
-
-            // 체크박스
-            BatStartCheck.IsChecked = s.BatStart;
-            BatStopCheck.IsChecked  = s.BatStop;
-            ExeStartCheck.IsChecked = s.ExeStart;
-            ExeStopCheck.IsChecked  = s.ExeStop;
-            FexStartCheck.IsChecked = s.FexStart;
-            FexStopCheck.IsChecked  = s.FexStop;
-
-            // 명령어 미리보기 업데이트
-            if (!string.IsNullOrEmpty(s.XmsMapPath))
-                XmsCmd2Preview.Text = $@".\xms.exe db create ""{s.XmsMapPath}""";
-            if (!string.IsNullOrEmpty(s.XflowMapPath))
-                XflowCmd2Preview.Text = $@".\xflow.exe db create -m ""{s.XflowMapPath}""";
+            ApplySettings(s);
         }
         catch { /* 오류 무시 */ }
     }
@@ -74,27 +53,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var s = new AppSettings
-            {
-                XmsMapPath   = XmsMapPath.Text,
-                XflowMapPath = XflowMapPath.Text,
-                SqlFilePath  = SqlFilePath.Text,
-                BatDir       = BatDir.Text,
-                ExeDir       = ExeDir.Text,
-                FexDir       = FexDir.Text,
-                DbHost       = DbHost.Text,
-                DbPort       = DbPort.Text,
-                DbName       = DbName.Text,
-                DbUser       = DbUser.Text,
-                DbPassword   = DbPassword.Password,
-                BatStart     = BatStartCheck.IsChecked == true,
-                BatStop      = BatStopCheck.IsChecked  == true,
-                ExeStart     = ExeStartCheck.IsChecked == true,
-                ExeStop      = ExeStopCheck.IsChecked  == true,
-                FexStart     = FexStartCheck.IsChecked == true,
-                FexStop      = FexStopCheck.IsChecked  == true,
-            };
-
+            var s = CaptureCurrent();
             Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
             File.WriteAllText(SettingsPath,
                 JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
@@ -103,6 +62,99 @@ public partial class MainWindow : Window
         {
             MessageBox.Show($"설정 저장 실패:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    // ── 설정 캡처 / 적용 헬퍼 ────────────────────────────
+
+    private AppSettings CaptureCurrent() => new()
+    {
+        XmsMapPath   = XmsMapPath.Text,
+        XflowMapPath = XflowMapPath.Text,
+        SqlFilePath  = SqlFilePath.Text,
+        BatDir       = BatDir.Text,
+        ExeDir       = ExeDir.Text,
+        FexDir       = FexDir.Text,
+        DbHost       = DbHost.Text,
+        DbPort       = DbPort.Text,
+        DbName       = DbName.Text,
+        DbUser       = DbUser.Text,
+        DbPassword   = DbPassword.Password,
+        BatStart     = BatStartCheck.IsChecked == true,
+        BatStop      = BatStopCheck.IsChecked  == true,
+        ExeStart     = ExeStartCheck.IsChecked == true,
+        ExeStop      = ExeStopCheck.IsChecked  == true,
+        FexStart     = FexStartCheck.IsChecked == true,
+        FexStop      = FexStopCheck.IsChecked  == true,
+        ExtraPrograms = [.. _extraPrograms],
+    };
+
+    private void ApplySettings(AppSettings s)
+    {
+        XmsMapPath.Text   = s.XmsMapPath;
+        XflowMapPath.Text = s.XflowMapPath;
+        SqlFilePath.Text  = s.SqlFilePath;
+        BatDir.Text       = s.BatDir;
+        ExeDir.Text       = s.ExeDir;
+        FexDir.Text       = s.FexDir;
+        DbHost.Text         = s.DbHost;
+        DbPort.Text         = s.DbPort;
+        DbName.Text         = s.DbName;
+        DbUser.Text         = s.DbUser;
+        DbPassword.Password = s.DbPassword;
+        BatStartCheck.IsChecked = s.BatStart;
+        BatStopCheck.IsChecked  = s.BatStop;
+        ExeStartCheck.IsChecked = s.ExeStart;
+        ExeStopCheck.IsChecked  = s.ExeStop;
+        FexStartCheck.IsChecked = s.FexStart;
+        FexStopCheck.IsChecked  = s.FexStop;
+        if (!string.IsNullOrEmpty(s.XmsMapPath))
+            XmsCmd2Preview.Text = $@".\xms.exe db create ""{s.XmsMapPath}""";
+        if (!string.IsNullOrEmpty(s.XflowMapPath))
+            XflowCmd2Preview.Text = $@".\xflow.exe db create -m ""{s.XflowMapPath}""";
+
+        _extraPrograms.Clear();
+        var list = s.ExtraPrograms is { Count: > 0 } ? s.ExtraPrograms : [new ExtraProgram()];
+        foreach (var p in list) _extraPrograms.Add(p);
+    }
+
+    // ── 프로필 저장 / 불러오기 ────────────────────────────
+
+    private void LoadProfiles()
+    {
+        try
+        {
+            if (File.Exists(ProfilesPath))
+                _profiles = JsonSerializer.Deserialize<Dictionary<string, AppSettings>>(
+                    File.ReadAllText(ProfilesPath)) ?? new();
+        }
+        catch { _profiles = new(); }
+
+        RefreshProfileComboBox(null);
+    }
+
+    private void SaveProfiles()
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(ProfilesPath)!);
+            File.WriteAllText(ProfilesPath,
+                JsonSerializer.Serialize(_profiles, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"프로필 저장 실패:\n{ex.Message}", "오류", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void RefreshProfileComboBox(string? selectedName)
+    {
+        _suppressProfileSelection = true;
+        ProfileComboBox.Items.Clear();
+        foreach (var name in _profiles.Keys.OrderBy(k => k))
+            ProfileComboBox.Items.Add(name);
+
+        ProfileComboBox.Text = selectedName ?? string.Empty;
+        _suppressProfileSelection = false;
     }
 
     // ── 찾기 버튼들 ─────────────────────────────────────
@@ -184,6 +236,63 @@ public partial class MainWindow : Window
 
         FexDir.Text = latest;
         SaveSettings();
+    }
+
+
+    // ── 프로필 버튼 핸들러 ────────────────────────────────
+
+    private void SaveProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var name = ProfileComboBox.Text?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            MessageBox.Show("프로필 이름을 입력하거나 선택하세요.", "프로필 저장",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        if (_profiles.ContainsKey(name))
+        {
+            var result = MessageBox.Show($"'{name}' 프로필을 덮어쓰시겠습니까?", "프로필 저장",
+                MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result != MessageBoxResult.Yes) return;
+        }
+
+        _profiles[name] = CaptureCurrent();
+        SaveProfiles();
+        RefreshProfileComboBox(name);
+        Log($"프로필 저장됨: {name}");
+    }
+
+    private void DeleteProfile_Click(object sender, RoutedEventArgs e)
+    {
+        var name = ProfileComboBox.Text?.Trim();
+        if (string.IsNullOrEmpty(name) || !_profiles.ContainsKey(name))
+        {
+            MessageBox.Show("삭제할 프로필을 선택하세요.", "프로필 삭제",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
+        var result = MessageBox.Show($"'{name}' 프로필을 삭제하시겠습니까?", "프로필 삭제",
+            MessageBoxButton.YesNo, MessageBoxImage.Warning);
+        if (result != MessageBoxResult.Yes) return;
+
+        _profiles.Remove(name);
+        SaveProfiles();
+        RefreshProfileComboBox(null);
+        Log($"프로필 삭제됨: {name}");
+    }
+
+    private void ProfileComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressProfileSelection) return;
+        var name = ProfileComboBox.SelectedItem as string;
+        if (name == null || !_profiles.TryGetValue(name, out var settings)) return;
+
+        ApplySettings(settings);
+        SaveSettings();
+        Log($"프로필 불러옴: {name}");
     }
 
     // ── 실행 버튼 ────────────────────────────────────────

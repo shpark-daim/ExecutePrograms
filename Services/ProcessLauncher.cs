@@ -13,15 +13,23 @@ public class ProcessLauncher(Action<string> log)
     // ── 시작 (fire-and-forget) ─────────────────────────
 
     /// <summary>지정 디렉터리에서 파일을 실행합니다 (대기 없음).</summary>
-    public Task StartInDirAsync(string directory, string fileName)
+    /// <param name="showWindow">true: 창 표시 (GUI/콘솔 기본값), false: 창 숨김</param>
+    public Task StartInDirAsync(string directory, string fileName, bool showWindow = true)
     {
         log($"  ▶ 실행: {fileName}");
 
-        var psi = new ProcessStartInfo(Path.Combine(directory, fileName))
-        {
-            UseShellExecute  = true,
-            WorkingDirectory = directory
-        };
+        var psi = showWindow
+            ? new ProcessStartInfo(Path.Combine(directory, fileName))
+              {
+                  UseShellExecute  = true,
+                  WorkingDirectory = directory
+              }
+            : new ProcessStartInfo(Path.Combine(directory, fileName))
+              {
+                  UseShellExecute  = false,
+                  CreateNoWindow   = true,
+                  WorkingDirectory = directory
+              };
 
         Process.Start(psi);
         log($"  프로세스 시작됨");
