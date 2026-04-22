@@ -1,9 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
@@ -25,6 +27,7 @@ public partial class MainWindow : Window
     private bool _suppressProfileSelection = false;
 
     private readonly ObservableCollection<ExtraProgram> _extraPrograms = new();
+    private string _fexDir = @"C:\DAIM\FexHub";
 
     public MainWindow()
     {
@@ -71,9 +74,9 @@ public partial class MainWindow : Window
         XmsMapPath   = XmsMapPath.Text,
         XflowMapPath = XflowMapPath.Text,
         SqlFilePath  = SqlFilePath.Text,
-        BatDir       = BatDir.Text,
-        ExeDir       = ExeDir.Text,
-        FexDir       = FexDir.Text,
+        BatDir  = BatDir.Text,
+        ExeDir  = ExeDir.Text,
+        FexDir  = _fexDir,
         DbHost       = DbHost.Text,
         DbPort       = DbPort.Text,
         DbName       = DbName.Text,
@@ -83,8 +86,9 @@ public partial class MainWindow : Window
         BatStop      = BatStopCheck.IsChecked  == true,
         ExeStart     = ExeStartCheck.IsChecked == true,
         ExeStop      = ExeStopCheck.IsChecked  == true,
-        FexStart     = FexStartCheck.IsChecked == true,
-        FexStop      = FexStopCheck.IsChecked  == true,
+        FexStart      = FexStartCheck.IsChecked == true,
+        FexStop       = FexStopCheck.IsChecked  == true,
+        FexWorkspace  = FexWorkspace.Text,
         ExtraPrograms = [.. _extraPrograms],
     };
 
@@ -93,9 +97,9 @@ public partial class MainWindow : Window
         XmsMapPath.Text   = s.XmsMapPath;
         XflowMapPath.Text = s.XflowMapPath;
         SqlFilePath.Text  = s.SqlFilePath;
-        BatDir.Text       = s.BatDir;
-        ExeDir.Text       = s.ExeDir;
-        FexDir.Text       = s.FexDir;
+        BatDir.Text = s.BatDir;
+        ExeDir.Text = s.ExeDir;
+        _fexDir     = s.FexDir;
         DbHost.Text         = s.DbHost;
         DbPort.Text         = s.DbPort;
         DbName.Text         = s.DbName;
@@ -107,6 +111,7 @@ public partial class MainWindow : Window
         ExeStopCheck.IsChecked  = s.ExeStop;
         FexStartCheck.IsChecked = s.FexStart;
         FexStopCheck.IsChecked  = s.FexStop;
+        FexWorkspace.Text       = s.FexWorkspace;
         if (!string.IsNullOrEmpty(s.XmsMapPath))
             XmsCmd2Preview.Text = $@".\xms.exe db create ""{s.XmsMapPath}""";
         if (!string.IsNullOrEmpty(s.XflowMapPath))
@@ -201,43 +206,98 @@ public partial class MainWindow : Window
         SaveSettings();
     }
 
-    private void BrowseFexDir_Click(object sender, RoutedEventArgs e)
-    {
-        var dlg = new OpenFolderDialog { Title = "FEX — 실행 위치 선택" };
-        if (dlg.ShowDialog() != true) return;
-        FexDir.Text = dlg.FolderName;
-        SaveSettings();
-    }
 
-    private void AutoDetectFexDir_Click(object sender, RoutedEventArgs e)
-    {
-        var parentPath = Path.GetDirectoryName(FexDir.Text.TrimEnd('\\', '/'));
-        if (string.IsNullOrEmpty(parentPath) || !Directory.Exists(parentPath))
-            parentPath = @"C:\DAIM\FexHub\Fex\Release";
 
-        if (!Directory.Exists(parentPath))
+    // ── FEX 워크스페이스 자동화 ──────────────────────────────
+
+    private async Task AutomateFexStartupAsync(Process fexProcess, string workspace)
+    {
+        var target = string.IsNullOrWhiteSpace(workspace) ? "Default" : workspace;
+        Log($"  FEX 시작 창 대기 중... (워크스페이스: {target})");
+
+        // 최대 20초 동안 FEX 창이 뜰 때까지 대기
+        AutomationElement? fexWindow = null;
+        for (int i = 0; i < 20; i++)
         {
-            MessageBox.Show($"경로를 찾을 수 없습니다:\n{parentPath}", "자동 감지 실패",
-                            MessageBoxButton.OK, MessageBoxImage.Warning);
+            await Task.Delay(1000);
+            try
+            {
+                fexWindow = AutomationElement.RootElement.FindFirst(
+                    TreeScope.Children,
+                    new PropertyCondition(AutomationElement.ProcessIdProperty, fexProcess.Id));
+                if (fexWindow != null) break;
+            }
+            catch { /* 아직 창이 없으면 재시도 */ }
+        }
+
+        if (fexWindow == null)
+        {
+            Log("  ⚠ FEX 시작 창을 찾지 못했습니다 (수동으로 워크스페이스를 선택하세요)");
             return;
         }
 
-        var latest = Directory.GetDirectories(parentPath)
-            .Where(d => Version.TryParse(Path.GetFileName(d), out _))
-            .OrderByDescending(d => Version.Parse(Path.GetFileName(d)))
-            .FirstOrDefault();
+        // ComboBox (Current Workspace) 찾기
+        var combo = fexWindow.FindFirst(TreeScope.Descendants,
+            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox));
 
-        if (latest == null)
+        if (combo == null)
         {
-            MessageBox.Show($"버전 폴더를 찾을 수 없습니다:\n{parentPath}", "자동 감지 실패",
-                            MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            Log("  ⚠ 워크스페이스 목록을 찾지 못했습니다");
+        }
+        else
+        {
+            try
+            {
+                // 드롭다운 열기
+                if (combo.GetCurrentPattern(ExpandCollapsePattern.Pattern) is ExpandCollapsePattern expand)
+                {
+                    expand.Expand();
+                    await Task.Delay(300);
+                }
+
+                // 항목 선택
+                var item = combo.FindFirst(TreeScope.Descendants,
+                    new AndCondition(
+                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+                        new PropertyCondition(AutomationElement.NameProperty, target)));
+
+                if (item == null && target != "Default")
+                {
+                    Log($"  ⚠ '{target}' 없음 — Default로 대체");
+                    item = combo.FindFirst(TreeScope.Descendants,
+                        new AndCondition(
+                            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
+                            new PropertyCondition(AutomationElement.NameProperty, "Default")));
+                }
+
+                if (item?.GetCurrentPattern(SelectionItemPattern.Pattern) is SelectionItemPattern select)
+                {
+                    select.Select();
+                    Log($"  ✓ 워크스페이스 선택: {item.Current.Name}");
+                }
+
+                await Task.Delay(200);
+            }
+            catch (Exception ex) { Log($"  ⚠ 워크스페이스 선택 실패: {ex.Message}"); }
         }
 
-        FexDir.Text = latest;
-        SaveSettings();
-    }
+        // Start 버튼 클릭
+        var startBtn = fexWindow.FindFirst(TreeScope.Descendants,
+            new AndCondition(
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                new PropertyCondition(AutomationElement.NameProperty, "Start")));
 
+        if (startBtn?.GetCurrentPattern(InvokePattern.Pattern) is InvokePattern invoke)
+        {
+            await Task.Delay(200);
+            invoke.Invoke();
+            Log("  ✓ FEX Start 완료");
+        }
+        else
+        {
+            Log("  ⚠ Start 버튼을 찾지 못했습니다 (수동으로 눌러주세요)");
+        }
+    }
 
     // ── 추가 프로그램 핸들러 ─────────────────────────────────
 
@@ -480,10 +540,17 @@ public partial class MainWindow : Window
             }
             else Log("  xflowd — 건너뜀");
 
-            if (FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(FexDir.Text))
+            if (FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_fexDir))
             {
-                Log("  Fex.exe 실행");
-                await prg.StartInDirAsync(FexDir.Text, "Fex.exe");
+                Log("  Fex Hub.exe 실행");
+                var fexProcess = Process.Start(new ProcessStartInfo(
+                    Path.Combine(_fexDir, "Fex Hub.exe"))
+                {
+                    UseShellExecute  = true,
+                    WorkingDirectory = _fexDir
+                });
+                if (fexProcess != null)
+                    await AutomateFexStartupAsync(fexProcess, FexWorkspace.Text.Trim());
             }
             else Log("  FEX — 건너뜀");
 

@@ -330,20 +330,14 @@
                         </Border>
 
                         <!-- ── FEX ── -->
-                        <Border Style="{StaticResource PrgBlock}" Margin="0,0,0,0">
+                        <Border Style="{StaticResource PrgBlock}" Margin="0,0,0,8">
                             <StackPanel>
                                 <TextBlock Text="● FEX  (GUI)" Style="{StaticResource PrgLabel}"/>
 
                                 <DockPanel Margin="0,0,0,8">
-                                    <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
-                                    <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
-                                            Click="BrowseFexDir_Click"/>
-                                    <Button Content="자동" DockPanel.Dock="Right"
-                                            Click="AutoDetectFexDir_Click"
-                                            Style="{StaticResource BrowseBtn}"/>
-                                    <TextBox x:Name="FexDir"
-                                             Text="C:\DAIM\FexHub\Fex\Release\1.14.6.208"
-                                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                    <TextBlock Text="워크스페이스" Style="{StaticResource FieldLabel}" Width="72"/>
+                                    <TextBox x:Name="FexWorkspace"
+                                             ToolTip="비워두면 Default 워크스페이스로 실행"/>
                                 </DockPanel>
 
                                 <DockPanel Margin="0,0,0,4">
@@ -352,7 +346,7 @@
                                     <TextBlock Text="시작" Style="{StaticResource FieldLabel}"
                                                Width="36" DockPanel.Dock="Left"/>
                                     <Border Style="{StaticResource CmdBorder}">
-                                        <TextBlock Style="{StaticResource CmdText}" Text="Fex.exe"/>
+                                        <TextBlock Style="{StaticResource CmdText}" Text="Fex Hub.exe"/>
                                     </Border>
                                 </DockPanel>
 

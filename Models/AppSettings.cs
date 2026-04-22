@@ -21,6 +21,9 @@ public class AppSettings
     public string ExeDir { get; set; } = @"C:\Project\xflow\Src\xflowd\bin\Debug\net10.0";
     public string FexDir { get; set; } = @"C:\DAIM\FexHub\Fex\Release\1.14.6.208";
 
+    // FEX 워크스페이스 (비어있으면 Default)
+    public string FexWorkspace { get; set; } = "";
+
     // 체크박스 상태
     public bool BatStart { get; set; } = true;
     public bool BatStop  { get; set; } = true;
