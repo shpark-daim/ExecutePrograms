@@ -207,12 +207,12 @@ public partial class MainWindow : Window
         {
             try
             {
-                Log("  stop.bat 실행 (최대 30초 대기)");
-                await cmd.RunAsync(BatDir.Text, @".\stop.bat", timeoutMs: 30_000);
+                Log("  xms service stop (최대 30초 대기)");
+                await cmd.RunAsync(BatDir.Text, @".\xms.exe service stop", timeoutMs: 30_000);
             }
-            catch (Exception ex) { Log($"  ⚠ stop.bat 건너뜀: {ex.Message}"); }
+            catch (Exception ex) { Log($"  ⚠ xms service stop 건너뜀: {ex.Message}"); }
         }
-        else Log("  BAT — 건너뜀");
+        else Log("  xms 서비스 — 건너뜀");
 
         if (ExeStopCheck.IsChecked == true)
         {
@@ -322,10 +322,10 @@ public partial class MainWindow : Window
         {
             if (BatStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
             {
-                Log("  start.bat 실행");
-                await prg.StartBatAsync(BatDir.Text, "start.bat");
+                Log("  xms service start");
+                await cmd.RunAsync(BatDir.Text, @".\xms.exe service start", timeoutMs: 30_000);
             }
-            else Log("  BAT — 건너뜀");
+            else Log("  xms 서비스 — 건너뜀");
 
             if (ExeStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(ExeDir.Text))
             {

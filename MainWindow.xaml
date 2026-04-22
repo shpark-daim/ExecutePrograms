@@ -198,10 +198,10 @@
                     </GroupBox.Header>
                     <StackPanel>
 
-                        <!-- ── BAT ── -->
+                        <!-- ── xms 서비스 ── -->
                         <Border Style="{StaticResource PrgBlock}">
                             <StackPanel>
-                                <TextBlock Text="● BAT  (start.bat / stop.bat)" Style="{StaticResource PrgLabel}"/>
+                                <TextBlock Text="● xms  (서비스)" Style="{StaticResource PrgLabel}"/>
 
                                 <DockPanel Margin="0,0,0,8">
                                     <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
@@ -218,7 +218,7 @@
                                     <TextBlock Text="시작" Style="{StaticResource FieldLabel}"
                                                Width="36" DockPanel.Dock="Left"/>
                                     <Border Style="{StaticResource CmdBorder}">
-                                        <TextBlock Style="{StaticResource CmdText}" Text=".\start.bat"/>
+                                        <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service start"/>
                                     </Border>
                                 </DockPanel>
 
@@ -228,7 +228,7 @@
                                     <TextBlock Text="종료" Style="{StaticResource FieldLabel}"
                                                Width="36" DockPanel.Dock="Left"/>
                                     <Border Style="{StaticResource CmdBorder}">
-                                        <TextBlock Style="{StaticResource CmdText}" Text=".\stop.bat"/>
+                                        <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service stop"/>
                                     </Border>
                                 </DockPanel>
                             </StackPanel>
