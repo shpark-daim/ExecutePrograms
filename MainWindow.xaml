@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="clr-namespace:ExecutePrograms.Models"
-        Title="ExecutePrograms" Height="860" Width="820"
+        Title="ExecutePrograms" Icon="app.ico" Height="860" Width="820"
         MinHeight="640" MinWidth="740"
         Background="#F0F2F5">
 
