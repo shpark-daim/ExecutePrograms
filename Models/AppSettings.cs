@@ -36,5 +36,5 @@ public class AppSettings
     public bool SqlRun    { get; set; } = true;
 
     // 추가 프로그램 목록
-    public List<ExtraProgram> ExtraPrograms { get; set; } = [new ExtraProgram()];
+    public List<ExtraProgram> ExtraPrograms { get; set; } = [];
 }

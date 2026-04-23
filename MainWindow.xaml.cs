@@ -126,8 +126,7 @@ public partial class MainWindow : Window
             XflowCmd2Preview.Text = $@".\xflow.exe db create -m ""{s.XflowMapPath}""";
 
         _extraPrograms.Clear();
-        var list = s.ExtraPrograms is { Count: > 0 } ? s.ExtraPrograms : [new ExtraProgram()];
-        foreach (var p in list) _extraPrograms.Add(p);
+        foreach (var p in s.ExtraPrograms ?? []) _extraPrograms.Add(p);
     }
 
     // ── 프로필 저장 / 불러오기 ────────────────────────────
@@ -529,15 +528,17 @@ public partial class MainWindow : Window
         }
         else Log("  FEX — 건너뜀");
 
-        foreach (var p in _extraPrograms.Where(p => p.StopEnabled && !string.IsNullOrWhiteSpace(p.ExePath)))
+        foreach (var p in _extraPrograms)
         {
+            var label = string.IsNullOrWhiteSpace(p.DisplayName) ? "(이름 없음)" : p.DisplayName;
+            if (!p.StopEnabled)                          { Log($"  {label} — 건너뜀"); continue; }
+            if (string.IsNullOrWhiteSpace(p.ExePath))   { Log($"  {label} — 실행 파일 미설정, 건너뜀"); continue; }
             try
             {
-                var label = string.IsNullOrWhiteSpace(p.DisplayName) ? p.FileName : p.DisplayName;
                 Log($"  {label} 종료");
                 await prg.KillProcessByNameAsync(p.FileName);
             }
-            catch (Exception ex) { Log($"  ⚠ 건너뜀: {ex.Message}"); }
+            catch (Exception ex) { Log($"  ⚠ {label} 건너뜀: {ex.Message}"); }
         }
 
         SetStep(1, StepState.Done);
@@ -649,12 +650,13 @@ public partial class MainWindow : Window
             }
             else Log("  FEX — 건너뜀");
 
-            foreach (var p in _extraPrograms.Where(p => p.StartEnabled && !string.IsNullOrWhiteSpace(p.ExePath)))
+            foreach (var p in _extraPrograms)
             {
-                var dir   = Path.GetDirectoryName(p.ExePath) ?? "";
-                var label = string.IsNullOrWhiteSpace(p.DisplayName) ? p.FileName : p.DisplayName;
+                var label = string.IsNullOrWhiteSpace(p.DisplayName) ? "(이름 없음)" : p.DisplayName;
+                if (!p.StartEnabled)                         { Log($"  {label} — 건너뜀"); continue; }
+                if (string.IsNullOrWhiteSpace(p.ExePath))   { Log($"  {label} — 실행 파일 미설정, 건너뜀"); continue; }
                 Log($"  {label} 실행");
-                await prg.StartInDirAsync(dir, p.FileName, p.ShowWindow);
+                await prg.StartInDirAsync(Path.GetDirectoryName(p.ExePath) ?? "", p.FileName, p.ShowWindow);
             }
 
             SetStep(5, StepState.Done);
@@ -666,14 +668,26 @@ public partial class MainWindow : Window
 
     private enum StepState { Inactive, Active, Done, Error, Skipped }
 
+    // Active (실행 중) — 전 단계 앰버 통일
     private static readonly (string Bg, string Bd, string Fg)[] ActiveColors =
     [
         default,
-        ("#FFEDEE", "#D73A3A", "#D73A3A"),  // ① 종료
-        ("#EBF0FF", "#1F6FEB", "#1F6FEB"),  // ② xms DB
-        ("#F5EFFF", "#8250DF", "#8250DF"),  // ③ xflow DB
-        ("#DDFBF0", "#0A8070", "#0A8070"),  // ④ SQL
-        ("#EEFFEC", "#2DA44E", "#2DA44E"),  // ⑤ 시작
+        ("#FFF8E1", "#FFC107", "#E65100"),
+        ("#FFF8E1", "#FFC107", "#E65100"),
+        ("#FFF8E1", "#FFC107", "#E65100"),
+        ("#FFF8E1", "#FFC107", "#E65100"),
+        ("#FFF8E1", "#FFC107", "#E65100"),
+    ];
+
+    // Done (완료) — 전 단계 다크 통일
+    private static readonly (string Bg, string Bd, string Fg)[] DoneColors =
+    [
+        default,
+        ("#F8F9FA", "#1E1E1E", "#1E1E1E"),
+        ("#F8F9FA", "#1E1E1E", "#1E1E1E"),
+        ("#F8F9FA", "#1E1E1E", "#1E1E1E"),
+        ("#F8F9FA", "#1E1E1E", "#1E1E1E"),
+        ("#F8F9FA", "#1E1E1E", "#1E1E1E"),
     ];
 
     private static readonly string[] ShortNames =
@@ -700,8 +714,8 @@ public partial class MainWindow : Window
             var (bg, bd, fg) = state switch
             {
                 StepState.Active   => ActiveColors[step],
-                StepState.Done     => ActiveColors[step],
-                StepState.Error    => ("#FFD6E0", "#FF85A1", "#B31D28"),
+                StepState.Done     => DoneColors[step],
+                StepState.Error    => ("#FFEBEE", "#E53935", "#C62828"),
                 StepState.Skipped  => ("#F6F8FA", "#C8D0D8", "#A0AABB"),
                 _                  => ("#F6F8FA", "#D0D7DE", "#8B949E"),
             };
