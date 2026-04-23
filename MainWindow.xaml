@@ -654,6 +654,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="② xms DB"
@@ -663,10 +664,14 @@
                                           FontSize="11" Foreground="#57606A"
                                           Checked="IndividualCheck_Changed" Unchecked="IndividualCheck_Changed"/>
                             </StackPanel>
-                            <TextBlock x:Name="Step2Text" Grid.Column="1"
+                            <Button x:Name="RunStep2Btn" Grid.Column="1"
+                                    Style="{StaticResource RunStepBtn}"
+                                    VerticalAlignment="Center" Margin="6,0,2,0"
+                                    Click="RunStep2_Click"/>
+                            <TextBlock x:Name="Step2Text" Grid.Column="2"
                                        Text="○" FontSize="14" FontWeight="Bold"
                                        Foreground="#8B949E" VerticalAlignment="Center"
-                                       Margin="10,0,0,0"/>
+                                       Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 
@@ -677,6 +682,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="③ xflow DB"
@@ -686,10 +692,14 @@
                                           FontSize="11" Foreground="#57606A"
                                           Checked="IndividualCheck_Changed" Unchecked="IndividualCheck_Changed"/>
                             </StackPanel>
-                            <TextBlock x:Name="Step3Text" Grid.Column="1"
+                            <Button x:Name="RunStep3Btn" Grid.Column="1"
+                                    Style="{StaticResource RunStepBtn}"
+                                    VerticalAlignment="Center" Margin="6,0,2,0"
+                                    Click="RunStep3_Click"/>
+                            <TextBlock x:Name="Step3Text" Grid.Column="2"
                                        Text="○" FontSize="14" FontWeight="Bold"
                                        Foreground="#8B949E" VerticalAlignment="Center"
-                                       Margin="10,0,0,0"/>
+                                       Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 
@@ -700,6 +710,7 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
                                 <TextBlock Text="④ SQL"
@@ -709,10 +720,14 @@
                                           FontSize="11" Foreground="#57606A"
                                           Checked="IndividualCheck_Changed" Unchecked="IndividualCheck_Changed"/>
                             </StackPanel>
-                            <TextBlock x:Name="Step4Text" Grid.Column="1"
+                            <Button x:Name="RunStep4Btn" Grid.Column="1"
+                                    Style="{StaticResource RunStepBtn}"
+                                    VerticalAlignment="Center" Margin="6,0,2,0"
+                                    Click="RunStep4_Click"/>
+                            <TextBlock x:Name="Step4Text" Grid.Column="2"
                                        Text="○" FontSize="14" FontWeight="Bold"
                                        Foreground="#8B949E" VerticalAlignment="Center"
-                                       Margin="10,0,0,0"/>
+                                       Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 
@@ -722,6 +737,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
@@ -755,10 +771,14 @@
                                     </ItemsControl>
                                 </WrapPanel>
                             </StackPanel>
-                            <TextBlock x:Name="Step5Text" Grid.Column="1"
+                            <Button x:Name="RunStep5Btn" Grid.Column="1"
+                                    Style="{StaticResource RunStepBtn}"
+                                    VerticalAlignment="Center" Margin="6,0,2,0"
+                                    Click="RunStep5_Click"/>
+                            <TextBlock x:Name="Step5Text" Grid.Column="2"
                                        Text="○" FontSize="14" FontWeight="Bold"
                                        Foreground="#8B949E" VerticalAlignment="Center"
-                                       Margin="10,0,0,0"/>
+                                       Margin="4,0,0,0"/>
                         </Grid>
                     </Border>
 

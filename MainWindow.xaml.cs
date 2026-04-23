@@ -389,20 +389,110 @@ public partial class MainWindow : Window
         Log($"프로필 불러옴: {name}");
     }
 
-    // ── 실행 버튼 ────────────────────────────────────────
+    // ── 실행 — 전체 / 개별 ───────────────────────────────
+
+    private bool _isRunning;
+
+    /// UI를 잠그고 action을 실행한 뒤 복원합니다.
+    private async Task RunWithLock(Func<Task> action)
+    {
+        _isRunning               = true;
+        ExecuteBtn.IsEnabled     = false;
+        ExecuteBtn.Content       = "⏳  실행 중...";
+        SetAllRunBtns(false);
+        try   { await action(); }
+        finally
+        {
+            _isRunning           = false;
+            ExecuteBtn.IsEnabled = true;
+            ExecuteBtn.Content   = "▶  실행";
+            SetAllRunBtns(true);
+        }
+    }
+
+    private void SetAllRunBtns(bool enabled)
+    {
+        RunStep1Btn.IsEnabled = RunStep2Btn.IsEnabled = RunStep3Btn.IsEnabled =
+        RunStep4Btn.IsEnabled = RunStep5Btn.IsEnabled = enabled;
+    }
+
+    // ── 전체 실행 버튼 ────────────────────────────────────
 
     private async void ExecuteBtn_Click(object sender, RoutedEventArgs e)
     {
-        ExecuteBtn.IsEnabled = false;
-        ExecuteBtn.Content   = "⏳  실행 중...";
-        LogBox.Clear();
-        ResetAllSteps();
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            LogBox.Clear();
+            ResetAllSteps();
+            var cmd = new CommandRunner(Log);
+            var db  = new DbInitializer(Log);
+            var prg = new ProcessLauncher(Log);
+            await Step1Async(cmd, prg);
+            await Step2Async(cmd);
+            await Step3Async(cmd);
+            await Step4Async(db);
+            await Step5Async(cmd, prg);
+            Log("════ ✅ 완료 ════");
+        });
+    }
 
-        var cmd = new CommandRunner(Log);
-        var db  = new DbInitializer(Log);
-        var prg = new ProcessLauncher(Log);
+    // ── 개별 실행 버튼 ────────────────────────────────────
 
-        // ① 종료
+    private async void RunStep1_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            SetStep(1, StepState.Inactive);
+            await Step1Async(new CommandRunner(Log), new ProcessLauncher(Log));
+        });
+    }
+
+    private async void RunStep2_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            SetStep(2, StepState.Inactive);
+            await Step2Async(new CommandRunner(Log));
+        });
+    }
+
+    private async void RunStep3_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            SetStep(3, StepState.Inactive);
+            await Step3Async(new CommandRunner(Log));
+        });
+    }
+
+    private async void RunStep4_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            SetStep(4, StepState.Inactive);
+            await Step4Async(new DbInitializer(Log));
+        });
+    }
+
+    private async void RunStep5_Click(object sender, RoutedEventArgs e)
+    {
+        if (_isRunning) return;
+        await RunWithLock(async () =>
+        {
+            SetStep(5, StepState.Inactive);
+            await Step5Async(new CommandRunner(Log), new ProcessLauncher(Log));
+        });
+    }
+
+    // ── 단계별 실행 로직 ─────────────────────────────────
+
+    private async Task Step1Async(CommandRunner cmd, ProcessLauncher prg)
+    {
         SetStep(1, StepState.Active);
         Log("════ ① 종료 단계 ════");
 
@@ -451,85 +541,82 @@ public partial class MainWindow : Window
         }
 
         SetStep(1, StepState.Done);
+    }
 
-        // ② xms DB
+    private async Task Step2Async(CommandRunner cmd)
+    {
         SetStep(2, StepState.Active);
         Log("════ ② xms DB ════");
         if (XmsDbCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(2, StepState.Skipped);
+            return;
         }
-        else
+        try
         {
-            try
+            Log("  db drop -a");
+            await cmd.RunAsync(XmsExeDir, @".\xms.exe db drop -a");
+            if (!string.IsNullOrWhiteSpace(XmsMapPath.Text))
             {
-                Log("  db drop -a");
-                await cmd.RunAsync(XmsExeDir, @".\xms.exe db drop -a");
-
-                if (!string.IsNullOrWhiteSpace(XmsMapPath.Text))
-                {
-                    Log("  db create");
-                    await cmd.RunAsync(XmsExeDir, $@".\xms.exe db create ""{XmsMapPath.Text}""");
-                }
-                else Log("  Map 미설정 — db create 건너뜀");
-
-                SetStep(2, StepState.Done);
+                Log("  db create");
+                await cmd.RunAsync(XmsExeDir, $@".\xms.exe db create ""{XmsMapPath.Text}""");
             }
-            catch (Exception ex) { SetStep(2, StepState.Error); Log($"  ❌ {ex.Message}"); }
+            else Log("  Map 미설정 — db create 건너뜀");
+            SetStep(2, StepState.Done);
         }
+        catch (Exception ex) { SetStep(2, StepState.Error); Log($"  ❌ {ex.Message}"); }
+    }
 
-        // ③ xflow DB
+    private async Task Step3Async(CommandRunner cmd)
+    {
         SetStep(3, StepState.Active);
         Log("════ ③ xflow DB ════");
         if (XflowDbCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(3, StepState.Skipped);
+            return;
         }
-        else
+        try
         {
-            try
+            Log("  db admin drop -a");
+            await cmd.RunAsync(XflowExeDir, @".\xflow.exe db admin drop -a");
+            if (!string.IsNullOrWhiteSpace(XflowMapPath.Text))
             {
-                Log("  db admin drop -a");
-                await cmd.RunAsync(XflowExeDir, @".\xflow.exe db admin drop -a");
-
-                if (!string.IsNullOrWhiteSpace(XflowMapPath.Text))
-                {
-                    Log("  db create");
-                    await cmd.RunAsync(XflowExeDir, $@".\xflow.exe db create -m ""{XflowMapPath.Text}""");
-                }
-                else Log("  Map 미설정 — db create 건너뜀");
-
-                SetStep(3, StepState.Done);
+                Log("  db create");
+                await cmd.RunAsync(XflowExeDir, $@".\xflow.exe db create -m ""{XflowMapPath.Text}""");
             }
-            catch (Exception ex) { SetStep(3, StepState.Error); Log($"  ❌ {ex.Message}"); }
+            else Log("  Map 미설정 — db create 건너뜀");
+            SetStep(3, StepState.Done);
         }
+        catch (Exception ex) { SetStep(3, StepState.Error); Log($"  ❌ {ex.Message}"); }
+    }
 
-        // ④ SQL
+    private async Task Step4Async(DbInitializer db)
+    {
         SetStep(4, StepState.Active);
         Log("════ ④ PostgreSQL SQL ════");
         if (SqlCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(4, StepState.Skipped);
+            return;
         }
-        else
+        try
         {
-            try
-            {
-                if (!string.IsNullOrWhiteSpace(SqlFilePath.Text))
-                    await db.RunSqlFileAsync(DbHost.Text, DbPort.Text, DbName.Text,
-                                             DbUser.Text, DbPassword.Password, SqlFilePath.Text);
-                else
-                    Log("  SQL 파일 미설정, 건너뜀");
-
-                SetStep(4, StepState.Done);
-            }
-            catch (Exception ex) { SetStep(4, StepState.Error); Log($"  ❌ {ex.Message}"); }
+            if (!string.IsNullOrWhiteSpace(SqlFilePath.Text))
+                await db.RunSqlFileAsync(DbHost.Text, DbPort.Text, DbName.Text,
+                                         DbUser.Text, DbPassword.Password, SqlFilePath.Text);
+            else
+                Log("  SQL 파일 미설정, 건너뜀");
+            SetStep(4, StepState.Done);
         }
+        catch (Exception ex) { SetStep(4, StepState.Error); Log($"  ❌ {ex.Message}"); }
+    }
 
-        // ⑤ 시작
+    private async Task Step5Async(CommandRunner cmd, ProcessLauncher prg)
+    {
         SetStep(5, StepState.Active);
         Log("════ ⑤ 시작 단계 ════");
         try
@@ -573,10 +660,6 @@ public partial class MainWindow : Window
             SetStep(5, StepState.Done);
         }
         catch (Exception ex) { SetStep(5, StepState.Error); Log($"  ❌ {ex.Message}"); }
-
-        Log("════ ✅ 완료 ════");
-        ExecuteBtn.IsEnabled = true;
-        ExecuteBtn.Content   = "▶  실행";
     }
 
     // ── 단계 상태 관리 ─────────────────────────────────────
@@ -692,6 +775,24 @@ public partial class MainWindow : Window
     }
 
     // ── 로그 헬퍼 ─────────────────────────────────────────
+
+    private void LogSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(LogBox.Text)) return;
+        try
+        {
+            var dir  = Path.Combine(AppDir, "logs");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, $"{DateTime.Now:yyyyMMdd_HHmmss}.txt");
+            File.WriteAllText(path, LogBox.Text);
+            Log($"  💾 로그 저장됨: {path}");
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"로그 저장 실패:\n{ex.Message}", "오류",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
 
     private void LogClear_Click(object sender, RoutedEventArgs e) => LogBox.Clear();
 
