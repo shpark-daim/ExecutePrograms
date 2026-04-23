@@ -25,12 +25,15 @@ public class AppSettings
     public string FexWorkspace { get; set; } = "";
 
     // 체크박스 상태
-    public bool BatStart { get; set; } = true;
-    public bool BatStop  { get; set; } = true;
-    public bool ExeStart { get; set; } = true;
-    public bool ExeStop  { get; set; } = true;
-    public bool FexStart { get; set; } = true;
-    public bool FexStop  { get; set; } = true;
+    public bool BatStart  { get; set; } = true;
+    public bool BatStop   { get; set; } = true;
+    public bool ExeStart  { get; set; } = true;
+    public bool ExeStop   { get; set; } = true;
+    public bool FexStart  { get; set; } = true;
+    public bool FexStop   { get; set; } = true;
+    public bool XmsDbRun  { get; set; } = true;
+    public bool XflowDbRun { get; set; } = true;
+    public bool SqlRun    { get; set; } = true;
 
     // 추가 프로그램 목록
     public List<ExtraProgram> ExtraPrograms { get; set; } = [new ExtraProgram()];

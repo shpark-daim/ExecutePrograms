@@ -32,7 +32,9 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        ExtraProgramsList.ItemsSource = _extraPrograms;
+        ExtraProgramsList.ItemsSource  = _extraPrograms;
+        ExtraStopChecks.ItemsSource    = _extraPrograms;
+        ExtraStartChecks.ItemsSource   = _extraPrograms;
         LoadSettings();
         LoadProfiles();
         Closing += (_, _) => SaveSettings();
@@ -82,12 +84,15 @@ public partial class MainWindow : Window
         DbName       = DbName.Text,
         DbUser       = DbUser.Text,
         DbPassword   = DbPassword.Password,
-        BatStart     = BatStartCheck.IsChecked == true,
-        BatStop      = BatStopCheck.IsChecked  == true,
-        ExeStart     = ExeStartCheck.IsChecked == true,
-        ExeStop      = ExeStopCheck.IsChecked  == true,
-        FexStart      = FexStartCheck.IsChecked == true,
-        FexStop       = FexStopCheck.IsChecked  == true,
+        BatStart      = BatStartCheck.IsChecked  == true,
+        BatStop       = BatStopCheck.IsChecked   == true,
+        ExeStart      = ExeStartCheck.IsChecked  == true,
+        ExeStop       = ExeStopCheck.IsChecked   == true,
+        FexStart      = FexStartCheck.IsChecked  == true,
+        FexStop       = FexStopCheck.IsChecked   == true,
+        XmsDbRun      = XmsDbCheck.IsChecked     == true,
+        XflowDbRun    = XflowDbCheck.IsChecked   == true,
+        SqlRun        = SqlCheck.IsChecked        == true,
         FexWorkspace  = FexWorkspace.Text,
         ExtraPrograms = [.. _extraPrograms],
     };
@@ -105,12 +110,15 @@ public partial class MainWindow : Window
         DbName.Text         = s.DbName;
         DbUser.Text         = s.DbUser;
         DbPassword.Password = s.DbPassword;
-        BatStartCheck.IsChecked = s.BatStart;
-        BatStopCheck.IsChecked  = s.BatStop;
-        ExeStartCheck.IsChecked = s.ExeStart;
-        ExeStopCheck.IsChecked  = s.ExeStop;
-        FexStartCheck.IsChecked = s.FexStart;
-        FexStopCheck.IsChecked  = s.FexStop;
+        BatStartCheck.IsChecked  = s.BatStart;
+        BatStopCheck.IsChecked   = s.BatStop;
+        ExeStartCheck.IsChecked  = s.ExeStart;
+        ExeStopCheck.IsChecked   = s.ExeStop;
+        FexStartCheck.IsChecked  = s.FexStart;
+        FexStopCheck.IsChecked   = s.FexStop;
+        XmsDbCheck.IsChecked     = s.XmsDbRun;
+        XflowDbCheck.IsChecked   = s.XflowDbRun;
+        SqlCheck.IsChecked       = s.SqlRun;
         FexWorkspace.Text       = s.FexWorkspace;
         if (!string.IsNullOrEmpty(s.XmsMapPath))
             XmsCmd2Preview.Text = $@".\xms.exe db create ""{s.XmsMapPath}""";
@@ -444,12 +452,12 @@ public partial class MainWindow : Window
 
         SetStep(1, StepState.Done);
 
-        // ② xms DB  — BAT 종료가 체크된 경우에만 실행
+        // ② xms DB
         SetStep(2, StepState.Active);
         Log("════ ② xms DB ════");
-        if (BatStopCheck.IsChecked != true)
+        if (XmsDbCheck.IsChecked != true)
         {
-            Log("  ○ BAT 종료 미선택 — 건너뜀");
+            Log("  ○ 건너뜀");
             SetStep(2, StepState.Skipped);
         }
         else
@@ -471,12 +479,12 @@ public partial class MainWindow : Window
             catch (Exception ex) { SetStep(2, StepState.Error); Log($"  ❌ {ex.Message}"); }
         }
 
-        // ③ xflow DB  — xflowd 종료가 체크된 경우에만 실행
+        // ③ xflow DB
         SetStep(3, StepState.Active);
         Log("════ ③ xflow DB ════");
-        if (ExeStopCheck.IsChecked != true)
+        if (XflowDbCheck.IsChecked != true)
         {
-            Log("  ○ xflowd 종료 미선택 — 건너뜀");
+            Log("  ○ 건너뜀");
             SetStep(3, StepState.Skipped);
         }
         else
@@ -498,12 +506,12 @@ public partial class MainWindow : Window
             catch (Exception ex) { SetStep(3, StepState.Error); Log($"  ❌ {ex.Message}"); }
         }
 
-        // ④ SQL  — xflowd 종료가 체크된 경우에만 실행
+        // ④ SQL
         SetStep(4, StepState.Active);
         Log("════ ④ PostgreSQL SQL ════");
-        if (ExeStopCheck.IsChecked != true)
+        if (SqlCheck.IsChecked != true)
         {
-            Log("  ○ xflowd 종료 미선택 — 건너뜀");
+            Log("  ○ 건너뜀");
             SetStep(4, StepState.Skipped);
         }
         else
@@ -589,7 +597,7 @@ public partial class MainWindow : Window
         ["", "종료", "xms DB", "xflow DB", "SQL", "시작"];
 
     private static readonly string[] OriginalTexts =
-        ["", "① 종료", "② xms DB", "③ xflow DB", "④ SQL", "⑤ 시작"];
+        ["", "○", "○", "○", "○", "○"];
 
     private void SetStep(int step, StepState state)
     {
@@ -637,6 +645,51 @@ public partial class MainWindow : Window
 
     private static SolidColorBrush ToBrush(string hex) =>
         new((Color)ColorConverter.ConvertFromString(hex));
+
+    // ── 전체 선택 ──────────────────────────────────────────
+
+    private bool _suppressSelectAll;
+
+    private void SelectAllCheck_Click(object sender, RoutedEventArgs e)
+    {
+        // 클릭 시 indeterminate → checked 로 강제 (토글: 전체체크 ↔ 전체해제)
+        bool v = SelectAllCheck.IsChecked == true;
+
+        _suppressSelectAll = true;
+        BatStopCheck.IsChecked   = v;
+        ExeStopCheck.IsChecked   = v;
+        FexStopCheck.IsChecked   = v;
+        XmsDbCheck.IsChecked     = v;
+        XflowDbCheck.IsChecked   = v;
+        SqlCheck.IsChecked       = v;
+        BatStartCheck.IsChecked  = v;
+        ExeStartCheck.IsChecked  = v;
+        FexStartCheck.IsChecked  = v;
+        foreach (var p in _extraPrograms) { p.StopEnabled = v; p.StartEnabled = v; }
+        _suppressSelectAll = false;
+    }
+
+    private void IndividualCheck_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSelectAll || !IsLoaded) return;
+        UpdateSelectAllState();
+    }
+
+    private void UpdateSelectAllState()
+    {
+        bool?[] states =
+        [
+            BatStopCheck.IsChecked,  ExeStopCheck.IsChecked,  FexStopCheck.IsChecked,
+            XmsDbCheck.IsChecked,    XflowDbCheck.IsChecked,  SqlCheck.IsChecked,
+            BatStartCheck.IsChecked, ExeStartCheck.IsChecked, FexStartCheck.IsChecked,
+        ];
+        bool allOn  = states.All(s => s == true);
+        bool allOff = states.All(s => s != true);
+
+        _suppressSelectAll = true;
+        SelectAllCheck.IsChecked = allOn ? true : allOff ? false : null;  // null = indeterminate
+        _suppressSelectAll = false;
+    }
 
     // ── 로그 헬퍼 ─────────────────────────────────────────
 
