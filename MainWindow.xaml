@@ -223,17 +223,47 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
+
+        <!-- ⚙ 설정 패널 토글 버튼 (ToggleButton) -->
+        <Style x:Key="GearBtn" TargetType="ToggleButton">
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Width"  Value="30"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="Transparent" BorderThickness="0" CornerRadius="4">
+                            <TextBlock x:Name="Ic" Text="☰" FontSize="15"
+                                       Foreground="#8B949E"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F0F2F5"/>
+                                <Setter TargetName="Ic" Property="Foreground" Value="#24292F"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E8EBEF"/>
+                                <Setter TargetName="Ic" Property="Foreground" Value="#24292F"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </Window.Resources>
 
-    <Grid Margin="12">
+    <Grid Margin="12" x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- 0: 프로필 바 -->
             <RowDefinition Height="*"/>     <!-- 1: 2열 콘텐츠 -->
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>    <!-- 0: 좌측 설정 -->
+            <ColumnDefinition Width="300"/>  <!-- 0: 좌측 실행+로그 -->
             <ColumnDefinition Width="8"/>    <!-- 1: 열 간격 -->
-            <ColumnDefinition Width="300"/>  <!-- 2: 우측 실행+로그 -->
+            <ColumnDefinition Width="*"/>    <!-- 2: 우측 설정 -->
         </Grid.ColumnDefinitions>
 
         <!-- ── 프로필 바 (전체 너비) ── -->
@@ -241,34 +271,57 @@
                 Background="White" BorderBrush="#D0D7DE" BorderThickness="1"
                 CornerRadius="6" Margin="0,0,0,8" Padding="14,10">
             <DockPanel>
-                <TextBlock Text="프로필" VerticalAlignment="Center"
-                           FontSize="12" FontWeight="SemiBold" Foreground="#57606A"
-                           Margin="0,0,12,0"/>
-                <Rectangle DockPanel.Dock="Left" Width="1" Fill="#D0D7DE" Margin="0,0,12,0"/>
+                <!-- 오른쪽: 설정 토글 / 고정 버튼 -->
+                <ToggleButton x:Name="CollapseSettingsBtn"
+                              DockPanel.Dock="Right"
+                              IsChecked="True"
+                              ToolTip="설정 접기"
+                              Style="{StaticResource GearBtn}"
+                              Click="CollapseSettings_Click"/>
+                <Rectangle DockPanel.Dock="Right" Width="1" Fill="#D0D7DE" Margin="8,0,8,0"/>
+
+                <!-- 왼쪽: 현재 프로필명 표시 -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <ComboBox x:Name="ProfileComboBox"
-                              IsEditable="True"
-                              Width="200" Height="30"
-                              VerticalContentAlignment="Center"
-                              Padding="6,0" FontSize="12"
-                              ToolTip="프로필 이름을 선택하거나 새 이름을 입력하세요"
-                              SelectionChanged="ProfileComboBox_SelectionChanged"/>
-                    <Button Content="저장" Width="52" Height="30" Margin="6,0,0,0"
-                            FontSize="12" ToolTip="현재 설정을 이 이름으로 저장"
-                            Style="{StaticResource SaveBtn}"
-                            Click="SaveProfile_Click"/>
-                    <Button Content="삭제" Width="52" Height="30" Margin="4,0,0,0"
-                            FontSize="12" ToolTip="선택한 프로필 삭제"
-                            Style="{StaticResource DeleteBtn}"
-                            Click="DeleteProfile_Click"/>
+                    <TextBlock Text="프로필" FontSize="12" Foreground="#8B949E"
+                               VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="CurrentProfileLabel"
+                               FontSize="12" FontWeight="SemiBold" Foreground="#24292F"
+                               VerticalAlignment="Center" Text="—"/>
                 </StackPanel>
             </DockPanel>
         </Border>
 
-        <!-- ── 좌측: 설정 ── -->
-        <ScrollViewer Grid.Row="1" Grid.Column="0"
+        <!-- ── 우측: 설정 ── -->
+        <ScrollViewer Grid.Row="1" Grid.Column="2"
+                      x:Name="SettingsPanel"
                       VerticalScrollBarVisibility="Auto">
                 <StackPanel>
+
+                    <!-- 프로필 관리 -->
+                    <GroupBox>
+                        <GroupBox.Header>
+                            <TextBlock Text="프로필 관리" FontWeight="SemiBold"
+                                       Foreground="#24292F" VerticalAlignment="Center"/>
+                        </GroupBox.Header>
+                        <DockPanel>
+                            <Button Content="삭제" Width="52" Height="30"
+                                    DockPanel.Dock="Right"
+                                    FontSize="12" ToolTip="선택한 프로필 삭제"
+                                    Style="{StaticResource DeleteBtn}"
+                                    Click="DeleteProfile_Click"/>
+                            <Button Content="저장" Width="52" Height="30"
+                                    DockPanel.Dock="Right" Margin="0,0,4,0"
+                                    FontSize="12" ToolTip="현재 설정을 이 이름으로 저장"
+                                    Style="{StaticResource SaveBtn}"
+                                    Click="SaveProfile_Click"/>
+                            <ComboBox x:Name="ProfileComboBox"
+                                      IsEditable="True" Height="30"
+                                      VerticalContentAlignment="Center"
+                                      Padding="6,0" FontSize="12"
+                                      ToolTip="프로필 이름을 선택하거나 새 이름을 입력하세요"
+                                      SelectionChanged="ProfileComboBox_SelectionChanged"/>
+                        </DockPanel>
+                    </GroupBox>
 
                     <!-- 실행 설정 -->
                     <GroupBox>
@@ -568,8 +621,8 @@
                 </StackPanel>
         </ScrollViewer>
 
-        <!-- ── 우측 패널: 실행 버튼 + Step + 로그 ── -->
-        <Grid Grid.Row="1" Grid.Column="2">
+        <!-- ── 좌측 패널: 실행 버튼 + Step + 로그 ── -->
+        <Grid Grid.Row="1" Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>  <!-- 실행 버튼 -->
                 <RowDefinition Height="Auto"/>  <!-- Step indicator -->

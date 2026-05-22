@@ -71,6 +71,25 @@ public partial class MainWindow : Window
 
     // ── 설정 캡처 / 적용 헬퍼 ────────────────────────────
 
+    // ── 설정 패널 토글 / 고정 ────────────────────────────────
+
+    private void CollapseSettings_Click(object sender, RoutedEventArgs e)
+        => SetSettingsPanelVisible(CollapseSettingsBtn.IsChecked == true);
+
+    private void SetSettingsPanelVisible(bool visible)
+    {
+        SettingsPanel.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        // Col0 = 실행 패널 (300px 고정, 설정 닫히면 전체 차지)
+        RootGrid.ColumnDefinitions[0].Width = visible ? new GridLength(300) : new GridLength(1, GridUnitType.Star);
+        RootGrid.ColumnDefinitions[1].Width = visible ? new GridLength(8)   : new GridLength(0);
+        // Col2 = 설정 패널 (* 가변, 설정 닫히면 0)
+        RootGrid.ColumnDefinitions[2].Width = visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        // ToggleButton 상태 동기화 (ApplySettings 등 직접 호출 시)
+        CollapseSettingsBtn.IsChecked = visible;
+        CollapseSettingsBtn.ToolTip   = visible ? "설정 접기" : "설정 펼치기";
+    }
+
+    // ── 설정 캡처 / 적용 헬퍼 ────────────────────────────
     private AppSettings CaptureCurrent() => new()
     {
         XmsMapPath   = XmsMapPath.Text,
@@ -93,8 +112,9 @@ public partial class MainWindow : Window
         XmsDbRun      = XmsDbCheck.IsChecked     == true,
         XflowDbRun    = XflowDbCheck.IsChecked   == true,
         SqlRun        = SqlCheck.IsChecked        == true,
-        FexWorkspace  = FexWorkspace.Text,
-        ExtraPrograms = [.. _extraPrograms],
+        FexWorkspace     = FexWorkspace.Text,
+        ExtraPrograms    = [.. _extraPrograms],
+        SettingsExpanded = SettingsPanel.Visibility == Visibility.Visible,
     };
 
     private void ApplySettings(AppSettings s)
@@ -127,6 +147,9 @@ public partial class MainWindow : Window
 
         _extraPrograms.Clear();
         foreach (var p in s.ExtraPrograms ?? []) _extraPrograms.Add(p);
+
+        // 설정 패널 상태 복원
+        SetSettingsPanelVisible(s.SettingsExpanded);
     }
 
     // ── 프로필 저장 / 불러오기 ────────────────────────────
@@ -167,6 +190,8 @@ public partial class MainWindow : Window
 
         ProfileComboBox.Text = selectedName ?? string.Empty;
         _suppressProfileSelection = false;
+
+        CurrentProfileLabel.Text = string.IsNullOrEmpty(selectedName) ? "—" : selectedName;
     }
 
     // ── 찾기 버튼들 ─────────────────────────────────────
@@ -385,6 +410,7 @@ public partial class MainWindow : Window
 
         ApplySettings(settings);
         SaveSettings();
+        CurrentProfileLabel.Text = name;
         Log($"프로필 불러옴: {name}");
     }
 

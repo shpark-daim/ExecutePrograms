@@ -35,6 +35,9 @@ public class AppSettings
     public bool XflowDbRun { get; set; } = true;
     public bool SqlRun    { get; set; } = true;
 
+    // 설정 패널 상태
+    public bool SettingsExpanded { get; set; } = true;
+
     // 추가 프로그램 목록
     public List<ExtraProgram> ExtraPrograms { get; set; } = [];
 }
