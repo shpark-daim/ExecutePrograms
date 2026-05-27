@@ -441,49 +441,111 @@ public partial class MainWindow : Window
     private async Task AutomateFexStartupAsync(Process fexProcess, string workspace)
     {
         var target = string.IsNullOrWhiteSpace(workspace) ? "Default" : workspace;
-        Log($"  FEX 시작 창 대기 중... (워크스페이스: {target})");
+        Log($"  FEX 창 대기 중... (워크스페이스: {target})");
 
-        // 최대 20초 동안 FEX 창이 뜰 때까지 대기
+        // ── Step 1: FEX 창 찾기 (업데이트 후 재시작 포함, 최대 60초) ──
         AutomationElement? fexWindow = null;
-        for (int i = 0; i < 20; i++)
+        int targetPid = fexProcess.Id;
+
+        for (int i = 0; i < 60; i++)
         {
             await Task.Delay(1000);
+
+            // 원본 프로세스가 종료됐으면 새 Fex Hub 프로세스로 전환
+            if (fexProcess.HasExited)
+            {
+                var newProcs = Process.GetProcessesByName("Fex Hub");
+                if (newProcs.Length > 0 && newProcs[0].Id != fexProcess.Id)
+                {
+                    if (targetPid == fexProcess.Id)   // 첫 전환 시에만 로그
+                        Log($"  ℹ 업데이트 감지 — 새 프로세스(PID {newProcs[0].Id}) 대기 중...");
+                    targetPid = newProcs[0].Id;
+                }
+                else continue;
+            }
+
             try
             {
                 fexWindow = AutomationElement.RootElement.FindFirst(
                     TreeScope.Children,
-                    new PropertyCondition(AutomationElement.ProcessIdProperty, fexProcess.Id));
+                    new PropertyCondition(AutomationElement.ProcessIdProperty, targetPid));
                 if (fexWindow != null) break;
             }
-            catch { /* 아직 창이 없으면 재시도 */ }
+            catch { /* 재시도 */ }
         }
 
         if (fexWindow == null)
         {
-            Log("  ⚠ FEX 시작 창을 찾지 못했습니다 (수동으로 워크스페이스를 선택하세요)");
+            Log("  ⚠ FEX 창을 찾지 못했습니다 (수동으로 워크스페이스를 선택하세요)");
             return;
         }
 
-        // ComboBox (Current Workspace) 찾기
-        var combo = fexWindow.FindFirst(TreeScope.Descendants,
-            new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox));
+        // ── Step 2: Start 버튼 활성화(Ready) 대기 ──────────────────────
+        // Downloading → Download Complete → Ready 순서로 진행됨
+        // Start 버튼이 enabled 되면 ComboBox도 사용 가능
+        Log("  ⏳ FEX Ready 대기 중...");
+        AutomationElement? startBtn = null;
 
-        if (combo == null)
+        for (int i = 0; i < 120; i++)
         {
-            Log("  ⚠ 워크스페이스 목록을 찾지 못했습니다");
-        }
-        else
-        {
+            await Task.Delay(1000);
             try
             {
-                // 드롭다운 열기
+                // 프로세스 재시작 시 창 참조 갱신
+                var latest = Process.GetProcessesByName("Fex Hub");
+                if (latest.Length > 0 && latest[0].Id != targetPid)
+                {
+                    targetPid = latest[0].Id;
+                    fexWindow = null;
+                }
+                fexWindow ??= AutomationElement.RootElement.FindFirst(
+                    TreeScope.Children,
+                    new PropertyCondition(AutomationElement.ProcessIdProperty, targetPid));
+                if (fexWindow == null) continue;
+
+                startBtn = fexWindow.FindFirst(TreeScope.Descendants,
+                    new AndCondition(
+                        new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
+                        new PropertyCondition(AutomationElement.NameProperty, "Start")));
+
+                if (startBtn != null &&
+                    (bool)startBtn.GetCurrentPropertyValue(AutomationElement.IsEnabledProperty))
+                {
+                    Log("  ✓ FEX Ready");
+                    break;
+                }
+                startBtn = null;
+            }
+            catch { fexWindow = null; /* 창 재탐색 */ }
+
+            if (i > 0 && i % 15 == 0)
+                Log($"  ⏳ {i}초 경과...");
+        }
+
+        if (startBtn == null)
+        {
+            Log("  ⚠ Start 버튼이 활성화되지 않았습니다 (수동으로 눌러주세요)");
+            return;
+        }
+
+        // ── Step 3: 워크스페이스 선택 ──────────────────────────────────
+        try
+        {
+            var combo = fexWindow!.FindFirst(TreeScope.Descendants,
+                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ComboBox));
+
+            if (combo == null)
+            {
+                Log("  ⚠ 워크스페이스 목록을 찾지 못했습니다");
+            }
+            else
+            {
                 if (combo.GetCurrentPattern(ExpandCollapsePattern.Pattern) is ExpandCollapsePattern expand)
                 {
                     expand.Expand();
                     await Task.Delay(300);
                 }
 
-                // 항목 선택
                 var item = combo.FindFirst(TreeScope.Descendants,
                     new AndCondition(
                         new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.ListItem),
@@ -503,28 +565,23 @@ public partial class MainWindow : Window
                     select.Select();
                     Log($"  ✓ 워크스페이스 선택: {item.Current.Name}");
                 }
-
                 await Task.Delay(200);
             }
-            catch (Exception ex) { Log($"  ⚠ 워크스페이스 선택 실패: {ex.Message}"); }
         }
+        catch (Exception ex) { Log($"  ⚠ 워크스페이스 선택 실패: {ex.Message}"); }
 
-        // Start 버튼 클릭
-        var startBtn = fexWindow.FindFirst(TreeScope.Descendants,
-            new AndCondition(
-                new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button),
-                new PropertyCondition(AutomationElement.NameProperty, "Start")));
-
-        if (startBtn?.GetCurrentPattern(InvokePattern.Pattern) is InvokePattern invoke)
+        // ── Step 4: Start 클릭 ─────────────────────────────────────────
+        try
         {
-            await Task.Delay(200);
-            invoke.Invoke();
-            Log("  ✓ FEX Start 완료");
+            if (startBtn.GetCurrentPattern(InvokePattern.Pattern) is InvokePattern invoke)
+            {
+                await Task.Delay(200);
+                invoke.Invoke();
+                Log("  ✓ FEX Start 완료");
+            }
+            else Log("  ⚠ Start 버튼을 클릭할 수 없습니다 (수동으로 눌러주세요)");
         }
-        else
-        {
-            Log("  ⚠ Start 버튼을 찾지 못했습니다 (수동으로 눌러주세요)");
-        }
+        catch (Exception ex) { Log($"  ⚠ Start 버튼 클릭 실패: {ex.Message}"); }
     }
 
     // ── 추가 프로그램 핸들러 ─────────────────────────────────
