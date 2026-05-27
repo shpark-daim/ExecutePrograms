@@ -165,23 +165,15 @@ public partial class MainWindow : Window
     /// <summary>xms 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
     private void UpdateXmsComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
     {
-        XmsPlaceholder.Visibility    = Visibility.Collapsed;
+        XmsPlaceholder.Visibility     = Visibility.Collapsed;
         XmsComponentsPanel.Visibility = Visibility.Visible;
         XmsComponentsPanel.Children.Clear();
 
+        var workingDir = BatDir.Text.Trim();
+
         foreach (var (name, result) in components)
         {
-            var (dotColor, textColor) = result.Kind switch
-            {
-                ServiceStatusChecker.State.Running  => ("#2EA043", "#1A6B2A"),
-                ServiceStatusChecker.State.Pending  => ("#FFC107", "#7D5600"),
-                _                                    => ("#E53935", "#C62828"),
-            };
-
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 2) };
-            sp.Children.Add(new TextBlock { Text = "●", FontSize = 9, Foreground = ToBrush(dotColor), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
-            sp.Children.Add(new TextBlock { Text = name, FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = ToBrush("#57606A"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
-            sp.Children.Add(new TextBlock { Text = result.Raw, FontSize = 11, Foreground = ToBrush(textColor), VerticalAlignment = VerticalAlignment.Center });
+            var sp = MakeComponentChip(name, result, workingDir, "xms.exe");
             XmsComponentsPanel.Children.Add(sp);
         }
     }
@@ -189,24 +181,119 @@ public partial class MainWindow : Window
     /// <summary>xflow 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
     private void UpdateXflowComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
     {
-        XflowPlaceholder.Visibility    = Visibility.Collapsed;
+        XflowPlaceholder.Visibility     = Visibility.Collapsed;
         XflowComponentsPanel.Visibility = Visibility.Visible;
         XflowComponentsPanel.Children.Clear();
 
+        var workingDir = XflowSvcDir.Text.Trim();
+
         foreach (var (name, result) in components)
         {
-            var (dotColor, textColor) = result.Kind switch
-            {
-                ServiceStatusChecker.State.Running  => ("#2EA043", "#1A6B2A"),
-                ServiceStatusChecker.State.Pending  => ("#FFC107", "#7D5600"),
-                _                                    => ("#E53935", "#C62828"),
-            };
-
-            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 2) };
-            sp.Children.Add(new TextBlock { Text = "●", FontSize = 9, Foreground = ToBrush(dotColor), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
-            sp.Children.Add(new TextBlock { Text = name, FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = ToBrush("#57606A"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
-            sp.Children.Add(new TextBlock { Text = result.Raw, FontSize = 11, Foreground = ToBrush(textColor), VerticalAlignment = VerticalAlignment.Center });
+            var sp = MakeComponentChip(name, result, workingDir, "xflow.exe");
             XflowComponentsPanel.Children.Add(sp);
+        }
+    }
+
+    /// <summary>컴포넌트 상태 칩(StackPanel)을 생성합니다. 우클릭 시 서비스 제어 메뉴가 표시됩니다.</summary>
+    private StackPanel MakeComponentChip(
+        string name, ServiceStatusChecker.Result result,
+        string workingDir, string exeName)
+    {
+        var (dotColor, textColor) = result.Kind switch
+        {
+            ServiceStatusChecker.State.Running => ("#2EA043", "#1A6B2A"),
+            ServiceStatusChecker.State.Pending => ("#FFC107", "#7D5600"),
+            _                                  => ("#E53935", "#C62828"),
+        };
+
+        var sp = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin      = new Thickness(0, 0, 10, 2),
+            Cursor      = System.Windows.Input.Cursors.Hand,
+            ToolTip     = "우클릭 — 서비스 제어",
+        };
+
+        sp.Children.Add(new TextBlock
+        {
+            Text              = "●",
+            FontSize          = 9,
+            Foreground        = ToBrush(dotColor),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin            = new Thickness(0, 0, 3, 0),
+        });
+        sp.Children.Add(new TextBlock
+        {
+            Text              = name,
+            FontSize          = 11,
+            FontWeight        = FontWeights.SemiBold,
+            Foreground        = ToBrush("#57606A"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin            = new Thickness(0, 0, 3, 0),
+        });
+        sp.Children.Add(new TextBlock
+        {
+            Text              = result.Raw,
+            FontSize          = 11,
+            Foreground        = ToBrush(textColor),
+            VerticalAlignment = VerticalAlignment.Center,
+        });
+
+        // 우클릭 컨텍스트 메뉴
+        var menu = new ContextMenu();
+        menu.Items.Add(MakeMenuItem("▶  시작", () => _ = ComponentActionAsync(workingDir, exeName, name, "start")));
+        menu.Items.Add(MakeMenuItem("■  중지", () => _ = ComponentActionAsync(workingDir, exeName, name, "stop")));
+        sp.ContextMenu = menu;
+
+        return sp;
+    }
+
+    private static MenuItem MakeMenuItem(string header, Action onClick)
+    {
+        var item = new MenuItem { Header = header };
+        item.Click += (_, _) => onClick();
+        return item;
+    }
+
+    /// <summary>xms / xflow 개별 컴포넌트에 서비스 명령(restart / start / stop)을 실행합니다.</summary>
+    private async Task ComponentActionAsync(string workingDir, string exeName, string componentName, string action)
+    {
+        var label = action switch
+        {
+            "restart" => $"↺ {componentName} 재시작",
+            "start"   => $"▶ {componentName} 시작",
+            "stop"    => $"■ {componentName} 중지",
+            _         => $"{componentName} {action}",
+        };
+
+        Log($"  {label} 중...");
+
+        var psi = new ProcessStartInfo(
+            Path.Combine(workingDir, exeName),
+            $"service {action} {componentName}")
+        {
+            UseShellExecute        = false,
+            CreateNoWindow         = true,
+            WorkingDirectory       = workingDir,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+        };
+
+        try
+        {
+            using var proc = Process.Start(psi)!;
+            var stdout = proc.StandardOutput.ReadToEndAsync();
+            await proc.WaitForExitAsync();
+            var output = (await stdout).Trim();
+
+            if (proc.ExitCode == 0)
+                Log($"  ✓ {label} 완료{(string.IsNullOrEmpty(output) ? "" : $" — {output}")}");
+            else
+                Log($"  ⚠ {label} 실패 (종료 코드: {proc.ExitCode}){(string.IsNullOrEmpty(output) ? "" : $" — {output}")}");
+        }
+        catch (Exception ex)
+        {
+            Log($"  ❌ {label} 오류: {ex.Message}");
         }
     }
 
