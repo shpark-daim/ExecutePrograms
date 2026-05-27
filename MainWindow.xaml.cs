@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Automation;
@@ -29,6 +30,8 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<ExtraProgram> _extraPrograms = new();
     private string _fexDir = @"C:\DAIM\FexHub";
 
+    private CancellationTokenSource? _pollCts;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -37,7 +40,7 @@ public partial class MainWindow : Window
         ExtraStartChecks.ItemsSource   = _extraPrograms;
         LoadSettings();
         LoadProfiles();
-        Closing += (_, _) => SaveSettings();
+        Closing += (_, _) => { StopPolling(); SaveSettings(); };
     }
 
     // ── 설정 저장 / 불러오기 ──────────────────────────────
@@ -89,15 +92,135 @@ public partial class MainWindow : Window
         CollapseSettingsBtn.ToolTip   = visible ? "설정 접기" : "설정 펼치기";
     }
 
+    // ── 서비스 상태 폴링 ─────────────────────────────────
+
+    private void StartPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts = new CancellationTokenSource();
+        var token = _pollCts.Token;
+        _ = Task.Run(() => PollLoopAsync(token));
+    }
+
+    private void StopPolling()
+    {
+        _pollCts?.Cancel();
+        _pollCts = null;
+    }
+
+    private async Task PollLoopAsync(CancellationToken ct)
+    {
+        var svc = new ServiceStatusChecker(_ => { });   // 로그 없이 조용히 폴링
+
+        while (!ct.IsCancellationRequested)
+        {
+            // xms — 컴포넌트별 멀티라인 파싱
+            string batDir  = "";
+            bool   showXms = false;
+            Dispatcher.Invoke(() =>
+            {
+                batDir  = BatDir.Text.Trim();
+                showXms = XmsServiceBlock.Visibility == Visibility.Visible;
+            });
+
+            if (showXms && !string.IsNullOrWhiteSpace(batDir))
+            {
+                try
+                {
+                    var components = await svc.CheckAllAsync(batDir, "xms.exe");
+                    if (!ct.IsCancellationRequested)
+                        Dispatcher.Invoke(() => UpdateXmsComponents(components));
+                }
+                catch { /* 무시 */ }
+            }
+
+            // xflow — 서비스 모드일 때만 폴링
+            if (!ct.IsCancellationRequested)
+            {
+                string xflowSvcDir = "";
+                bool   useService  = false;
+                Dispatcher.Invoke(() =>
+                {
+                    xflowSvcDir = XflowSvcDir.Text.Trim();
+                    useService  = XflowSvcRadio.IsChecked == true;
+                });
+
+                if (useService && !string.IsNullOrWhiteSpace(xflowSvcDir))
+                {
+                    try
+                    {
+                        var components = await svc.CheckAllAsync(xflowSvcDir, "xflow.exe");
+                        if (!ct.IsCancellationRequested)
+                            Dispatcher.Invoke(() => UpdateXflowComponents(components));
+                    }
+                    catch { /* 무시 */ }
+                }
+            }
+
+            try { await Task.Delay(5000, ct); }
+            catch (OperationCanceledException) { break; }
+        }
+    }
+
+    /// <summary>xms 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
+    private void UpdateXmsComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
+    {
+        XmsPlaceholder.Visibility    = Visibility.Collapsed;
+        XmsComponentsPanel.Visibility = Visibility.Visible;
+        XmsComponentsPanel.Children.Clear();
+
+        foreach (var (name, result) in components)
+        {
+            var (dotColor, textColor) = result.Kind switch
+            {
+                ServiceStatusChecker.State.Running  => ("#2EA043", "#1A6B2A"),
+                ServiceStatusChecker.State.Pending  => ("#FFC107", "#7D5600"),
+                _                                    => ("#E53935", "#C62828"),
+            };
+
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 2) };
+            sp.Children.Add(new TextBlock { Text = "●", FontSize = 9, Foreground = ToBrush(dotColor), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
+            sp.Children.Add(new TextBlock { Text = name, FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = ToBrush("#57606A"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
+            sp.Children.Add(new TextBlock { Text = result.Raw, FontSize = 11, Foreground = ToBrush(textColor), VerticalAlignment = VerticalAlignment.Center });
+            XmsComponentsPanel.Children.Add(sp);
+        }
+    }
+
+    /// <summary>xflow 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
+    private void UpdateXflowComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
+    {
+        XflowPlaceholder.Visibility    = Visibility.Collapsed;
+        XflowComponentsPanel.Visibility = Visibility.Visible;
+        XflowComponentsPanel.Children.Clear();
+
+        foreach (var (name, result) in components)
+        {
+            var (dotColor, textColor) = result.Kind switch
+            {
+                ServiceStatusChecker.State.Running  => ("#2EA043", "#1A6B2A"),
+                ServiceStatusChecker.State.Pending  => ("#FFC107", "#7D5600"),
+                _                                    => ("#E53935", "#C62828"),
+            };
+
+            var sp = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 10, 2) };
+            sp.Children.Add(new TextBlock { Text = "●", FontSize = 9, Foreground = ToBrush(dotColor), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
+            sp.Children.Add(new TextBlock { Text = name, FontSize = 11, FontWeight = FontWeights.SemiBold, Foreground = ToBrush("#57606A"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 3, 0) });
+            sp.Children.Add(new TextBlock { Text = result.Raw, FontSize = 11, Foreground = ToBrush(textColor), VerticalAlignment = VerticalAlignment.Center });
+            XflowComponentsPanel.Children.Add(sp);
+        }
+    }
+
     // ── 설정 캡처 / 적용 헬퍼 ────────────────────────────
     private AppSettings CaptureCurrent() => new()
     {
         XmsMapPath   = XmsMapPath.Text,
         XflowMapPath = XflowMapPath.Text,
         SqlFilePath  = SqlFilePath.Text,
-        BatDir  = BatDir.Text,
-        ExeDir  = ExeDir.Text,
-        FexDir  = _fexDir,
+        BatDir        = BatDir.Text,
+        ExeDir        = ExeDir.Text,
+        XflowSvcDir   = XflowSvcDir.Text,
+        XflowUseService = XflowSvcRadio.IsChecked == true,
+        FexDir        = _fexDir,
         DbHost       = DbHost.Text,
         DbPort       = DbPort.Text,
         DbName       = DbName.Text,
@@ -114,6 +237,9 @@ public partial class MainWindow : Window
         SqlRun        = SqlCheck.IsChecked        == true,
         FexWorkspace     = FexWorkspace.Text,
         ExtraPrograms    = [.. _extraPrograms],
+        ShowXms          = XmsServiceBlock.Visibility  == Visibility.Visible,
+        ShowXflow        = XflowServiceBlock.Visibility == Visibility.Visible,
+        ShowFex          = FexServiceBlock.Visibility  == Visibility.Visible,
         SettingsExpanded = SettingsPanel.Visibility == Visibility.Visible,
     };
 
@@ -122,9 +248,14 @@ public partial class MainWindow : Window
         XmsMapPath.Text   = s.XmsMapPath;
         XflowMapPath.Text = s.XflowMapPath;
         SqlFilePath.Text  = s.SqlFilePath;
-        BatDir.Text = s.BatDir;
-        ExeDir.Text = s.ExeDir;
-        _fexDir     = s.FexDir;
+        BatDir.Text       = s.BatDir;
+        ExeDir.Text       = s.ExeDir;
+        XflowSvcDir.Text  = s.XflowSvcDir;
+        _fexDir           = s.FexDir;
+        // xflow 모드 복원 (RadioButton은 직접 설정)
+        if (s.XflowUseService) XflowSvcRadio.IsChecked = true;
+        else                   XflowExeRadio.IsChecked  = true;
+        ApplyXflowMode(s.XflowUseService);
         DbHost.Text         = s.DbHost;
         DbPort.Text         = s.DbPort;
         DbName.Text         = s.DbName;
@@ -148,6 +279,9 @@ public partial class MainWindow : Window
         _extraPrograms.Clear();
         foreach (var p in s.ExtraPrograms ?? []) _extraPrograms.Add(p);
 
+        SetXmsVisible(s.ShowXms);
+        SetXflowVisible(s.ShowXflow);
+        SetFexVisible(s.ShowFex);
         // 설정 패널 상태 복원
         SetSettingsPanelVisible(s.SettingsExpanded);
     }
@@ -237,6 +371,68 @@ public partial class MainWindow : Window
         ExeDir.Text = dlg.FolderName;
         SaveSettings();
     }
+
+    private void BrowseXflowSvcDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "xflow 서비스 — 실행 위치 선택" };
+        if (dlg.ShowDialog() != true) return;
+        XflowSvcDir.Text = dlg.FolderName;
+        SaveSettings();
+    }
+
+    private void XflowMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        ApplyXflowMode(XflowSvcRadio.IsChecked == true);
+        SaveSettings();
+    }
+
+    private void ApplyXflowMode(bool useService)
+    {
+        XflowSvcPanel.Visibility = useService ? Visibility.Visible   : Visibility.Collapsed;
+        XflowExePanel.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    // ── 구성요소 표시 / 제거 ──────────────────────────────
+
+    private void SetXmsVisible(bool v)
+    {
+        XmsServiceBlock.Visibility = v ? Visibility.Visible : Visibility.Collapsed;
+        XmsDbGroupBox.Visibility   = v ? Visibility.Visible : Visibility.Collapsed;
+        BatStopCheck.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
+        BatStartCheck.Visibility   = v ? Visibility.Visible : Visibility.Collapsed;
+        Step2Border.Visibility     = v ? Visibility.Visible : Visibility.Collapsed;
+        XmsStatusRow.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
+        RestoreXmsBtn.Visibility   = v ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void SetXflowVisible(bool v)
+    {
+        XflowServiceBlock.Visibility = v ? Visibility.Visible : Visibility.Collapsed;
+        XflowDbGroupBox.Visibility   = v ? Visibility.Visible : Visibility.Collapsed;
+        SqlGroupBox.Visibility       = v ? Visibility.Visible : Visibility.Collapsed;
+        ExeStopCheck.Visibility      = v ? Visibility.Visible : Visibility.Collapsed;
+        ExeStartCheck.Visibility     = v ? Visibility.Visible : Visibility.Collapsed;
+        Step3Border.Visibility       = v ? Visibility.Visible : Visibility.Collapsed;
+        Step4Border.Visibility       = v ? Visibility.Visible : Visibility.Collapsed;
+        XflowStatusRow.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
+        RestoreXflowBtn.Visibility   = v ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void SetFexVisible(bool v)
+    {
+        FexServiceBlock.Visibility = v ? Visibility.Visible : Visibility.Collapsed;
+        FexStopCheck.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
+        FexStartCheck.Visibility   = v ? Visibility.Visible : Visibility.Collapsed;
+        RestoreFexBtn.Visibility   = v ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void RemoveXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(false);  SaveSettings(); }
+    private void RemoveXflow_Click(object sender, RoutedEventArgs e) { SetXflowVisible(false); SaveSettings(); }
+    private void RemoveFex_Click(object sender, RoutedEventArgs e)   { SetFexVisible(false);   SaveSettings(); }
+    private void RestoreXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(true);   SaveSettings(); }
+    private void RestoreXflow_Click(object sender, RoutedEventArgs e){ SetXflowVisible(true);  SaveSettings(); }
+    private void RestoreFex_Click(object sender, RoutedEventArgs e)  { SetFexVisible(true);    SaveSettings(); }
 
 
 
@@ -459,6 +655,7 @@ public partial class MainWindow : Window
             await Step4Async(db);
             await Step5Async(cmd, prg);
             Log("════ ✅ 완료 ════");
+            StartPolling();
         });
     }
 
@@ -511,6 +708,7 @@ public partial class MainWindow : Window
         {
             SetStep(5, StepState.Inactive);
             await Step5Async(new CommandRunner(Log), new ProcessLauncher(Log));
+            StartPolling();
         });
     }
 
@@ -520,6 +718,7 @@ public partial class MainWindow : Window
     {
         SetStep(1, StepState.Active);
         Log("════ ① 종료 단계 ════");
+        var svc = new ServiceStatusChecker(Log);
 
         if (BatStopCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
         {
@@ -527,6 +726,7 @@ public partial class MainWindow : Window
             {
                 Log("  xms service stop (최대 30초 대기)");
                 await cmd.RunAsync(BatDir.Text, @".\xms.exe service stop", timeoutMs: 30_000);
+                await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
             }
             catch (Exception ex) { Log($"  ⚠ xms service stop 건너뜀: {ex.Message}"); }
         }
@@ -536,12 +736,21 @@ public partial class MainWindow : Window
         {
             try
             {
-                Log("  xflowd.exe 프로세스 종료");
-                await prg.KillProcessByNameAsync("xflowd.exe");
+                if (XflowSvcRadio.IsChecked == true && !string.IsNullOrWhiteSpace(XflowSvcDir.Text))
+                {
+                    Log("  xflow service stop (최대 30초 대기)");
+                    await cmd.RunAsync(XflowSvcDir.Text, @".\xflow.exe service stop", timeoutMs: 30_000);
+                    await svc.LogStatusAsync("xflow", XflowSvcDir.Text, "xflow.exe");
+                }
+                else
+                {
+                    Log("  xflowd.exe 프로세스 종료");
+                    await prg.KillProcessByNameAsync("xflowd.exe");
+                }
             }
-            catch (Exception ex) { Log($"  ⚠ xflowd 건너뜀: {ex.Message}"); }
+            catch (Exception ex) { Log($"  ⚠ xflow 건너뜀: {ex.Message}"); }
         }
-        else Log("  xflowd — 건너뜀");
+        else Log("  xflow — 건너뜀");
 
         if (FexStopCheck.IsChecked == true)
         {
@@ -620,7 +829,7 @@ public partial class MainWindow : Window
         catch (Exception ex) { SetStep(3, StepState.Error); Log($"  ❌ {ex.Message}"); }
     }
 
-    private async Task Step4Async(DbInitializer db)
+    private async Task Step4Async(DbInitializer _)
     {
         SetStep(4, StepState.Active);
         Log("════ ④ PostgreSQL SQL ════");
@@ -633,8 +842,15 @@ public partial class MainWindow : Window
         try
         {
             if (!string.IsNullOrWhiteSpace(SqlFilePath.Text))
-                await db.RunSqlFileAsync(DbHost.Text, DbPort.Text, DbName.Text,
-                                         DbUser.Text, DbPassword.Password, SqlFilePath.Text);
+            {
+                var sqlWin = new SqlLogWindow();
+                sqlWin.Show();
+                var sqlDb = new DbInitializer(sqlWin.AppendLog);
+                Log("  SQL 실행 중... (별도 창에서 출력)");
+                await sqlDb.RunSqlFileAsync(DbHost.Text, DbPort.Text, DbName.Text,
+                                            DbUser.Text, DbPassword.Password, SqlFilePath.Text);
+                Log("  ✓ SQL 완료");
+            }
             else
                 Log("  SQL 파일 미설정, 건너뜀");
             SetStep(4, StepState.Done);
@@ -646,21 +862,33 @@ public partial class MainWindow : Window
     {
         SetStep(5, StepState.Active);
         Log("════ ⑤ 시작 단계 ════");
+        var svc = new ServiceStatusChecker(Log);
         try
         {
             if (BatStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
             {
                 Log("  xms service start");
                 await cmd.RunAsync(BatDir.Text, @".\xms.exe service start", timeoutMs: 30_000);
+                await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
             }
             else Log("  xms 서비스 — 건너뜀");
 
-            if (ExeStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(ExeDir.Text))
+            if (ExeStartCheck.IsChecked == true)
             {
-                Log("  xflowd.exe 실행");
-                await prg.StartInDirAsync(ExeDir.Text, "xflowd.exe");
+                if (XflowSvcRadio.IsChecked == true && !string.IsNullOrWhiteSpace(XflowSvcDir.Text))
+                {
+                    Log("  xflow service start");
+                    await cmd.RunAsync(XflowSvcDir.Text, @".\xflow.exe service start", timeoutMs: 30_000);
+                    await svc.LogStatusAsync("xflow", XflowSvcDir.Text, "xflow.exe");
+                }
+                else if (XflowExeRadio.IsChecked == true && !string.IsNullOrWhiteSpace(ExeDir.Text))
+                {
+                    Log("  xflowd.exe 실행");
+                    await prg.StartInDirAsync(ExeDir.Text, "xflowd.exe");
+                }
+                else Log("  xflow — 경로 미설정, 건너뜀");
             }
-            else Log("  xflowd — 건너뜀");
+            else Log("  xflow — 건너뜀");
 
             if (FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_fexDir))
             {
@@ -672,7 +900,18 @@ public partial class MainWindow : Window
                     WorkingDirectory = _fexDir
                 });
                 if (fexProcess != null)
+                {
                     await AutomateFexStartupAsync(fexProcess, FexWorkspace.Text.Trim());
+                    // 업데이트 후 재시작 대비 — 원본 PID 대신 프로세스명으로 최종 확인
+                    await Task.Delay(2000);
+                    var fexProcs = Process.GetProcessesByName("Fex Hub");
+                    if (fexProcs.Length > 0)
+                        Log($"  ✓ Fex Hub 실행 중 (PID {fexProcs[0].Id})");
+                    else if (!fexProcess.HasExited)
+                        Log($"  ✓ Fex Hub.exe 실행 중 (PID {fexProcess.Id})");
+                    else
+                        Log($"  ⚠ Fex Hub.exe 종료됨 — 업데이트 중이면 잠시 후 자동 재시작됩니다");
+                }
             }
             else Log("  FEX — 건너뜀");
 
@@ -800,12 +1039,14 @@ public partial class MainWindow : Window
 
     private void UpdateSelectAllState()
     {
-        bool?[] states =
-        [
-            BatStopCheck.IsChecked,  ExeStopCheck.IsChecked,  FexStopCheck.IsChecked,
-            XmsDbCheck.IsChecked,    XflowDbCheck.IsChecked,  SqlCheck.IsChecked,
-            BatStartCheck.IsChecked, ExeStartCheck.IsChecked, FexStartCheck.IsChecked,
-        ];
+        // 숨겨진(제거된) 구성요소 체크박스는 집계에서 제외
+        var visible = new[] {
+            BatStopCheck,  ExeStopCheck,  FexStopCheck,
+            XmsDbCheck,    XflowDbCheck,  SqlCheck,
+            BatStartCheck, ExeStartCheck, FexStartCheck,
+        }.Where(cb => cb.Visibility == Visibility.Visible).ToArray();
+
+        bool?[] states = visible.Select(cb => cb.IsChecked).ToArray();
         bool allOn  = states.All(s => s == true);
         bool allOff = states.All(s => s != true);
 

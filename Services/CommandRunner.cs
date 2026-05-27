@@ -65,10 +65,15 @@ public class CommandRunner(Action<string> log)
                 log($"    {stdout.Trim()}");
 
             if (!string.IsNullOrWhiteSpace(stderr))
-                log($"    [STDERR] {stderr.Trim()}");
+                log($"  ⚠ [STDERR] {stderr.Trim()}");
 
             if (!timedOut)
-                log($"  완료 (종료 코드: {process.ExitCode})");
+            {
+                if (process.ExitCode == 0)
+                    log($"  ✓ 완료");
+                else
+                    log($"  ❌ 오류 — 종료 코드: {process.ExitCode}");
+            }
         }
     }
 }

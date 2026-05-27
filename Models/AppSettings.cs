@@ -17,9 +17,13 @@ public class AppSettings
     public string DbPassword  { get; set; } = "postgres";
 
     // 프로그램 실행 위치
-    public string BatDir { get; set; } = @"C:\Project\Release\xms";
-    public string ExeDir { get; set; } = @"C:\Project\xflow\Src\xflowd\bin\Debug\net10.0";
-    public string FexDir { get; set; } = @"C:\DAIM\FexHub\Fex\Release\1.14.6.208";
+    public string BatDir      { get; set; } = @"C:\Project\Release\xms";
+    public string ExeDir      { get; set; } = @"C:\Project\xflow\Src\xflowd\bin\Debug\net10.0";
+    public string XflowSvcDir { get; set; } = "";
+    public string FexDir      { get; set; } = @"C:\DAIM\FexHub\Fex\Release\1.14.6.208";
+
+    // xflow 실행 방식: true = 서비스(xflow.exe), false = EXE(xflowd.exe)
+    public bool XflowUseService { get; set; } = false;
 
     // FEX 워크스페이스 (비어있으면 Default)
     public string FexWorkspace { get; set; } = "";
@@ -34,6 +38,11 @@ public class AppSettings
     public bool XmsDbRun  { get; set; } = true;
     public bool XflowDbRun { get; set; } = true;
     public bool SqlRun    { get; set; } = true;
+
+    // 구성요소 표시 여부
+    public bool ShowXms  { get; set; } = true;
+    public bool ShowXflow { get; set; } = true;
+    public bool ShowFex  { get; set; } = true;
 
     // 설정 패널 상태
     public bool SettingsExpanded { get; set; } = true;
