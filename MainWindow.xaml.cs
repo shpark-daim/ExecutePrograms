@@ -1036,25 +1036,34 @@ public partial class MainWindow : Window
 
             if (FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_fexDir))
             {
-                Log("  Fex Hub.exe 실행");
-                var fexProcess = Process.Start(new ProcessStartInfo(
-                    Path.Combine(_fexDir, "Fex Hub.exe"))
+                // 이미 실행 중이면 스킵
+                var existing = Process.GetProcessesByName("Fex Hub");
+                if (existing.Length > 0)
                 {
-                    UseShellExecute  = true,
-                    WorkingDirectory = _fexDir
-                });
-                if (fexProcess != null)
+                    Log($"  ℹ Fex Hub 이미 실행 중 (PID {existing[0].Id}) — 건너뜀");
+                }
+                else
                 {
-                    await AutomateFexStartupAsync(fexProcess, FexWorkspace.Text.Trim());
-                    // 업데이트 후 재시작 대비 — 원본 PID 대신 프로세스명으로 최종 확인
-                    await Task.Delay(2000);
-                    var fexProcs = Process.GetProcessesByName("Fex Hub");
-                    if (fexProcs.Length > 0)
-                        Log($"  ✓ Fex Hub 실행 중 (PID {fexProcs[0].Id})");
-                    else if (!fexProcess.HasExited)
-                        Log($"  ✓ Fex Hub.exe 실행 중 (PID {fexProcess.Id})");
-                    else
-                        Log($"  ⚠ Fex Hub.exe 종료됨 — 업데이트 중이면 잠시 후 자동 재시작됩니다");
+                    Log("  Fex Hub.exe 실행");
+                    var fexProcess = Process.Start(new ProcessStartInfo(
+                        Path.Combine(_fexDir, "Fex Hub.exe"))
+                    {
+                        UseShellExecute  = true,
+                        WorkingDirectory = _fexDir
+                    });
+                    if (fexProcess != null)
+                    {
+                        await AutomateFexStartupAsync(fexProcess, FexWorkspace.Text.Trim());
+                        // 업데이트 후 재시작 대비 — 원본 PID 대신 프로세스명으로 최종 확인
+                        await Task.Delay(2000);
+                        var fexProcs = Process.GetProcessesByName("Fex Hub");
+                        if (fexProcs.Length > 0)
+                            Log($"  ✓ Fex Hub 실행 중 (PID {fexProcs[0].Id})");
+                        else if (!fexProcess.HasExited)
+                            Log($"  ✓ Fex Hub.exe 실행 중 (PID {fexProcess.Id})");
+                        else
+                            Log($"  ⚠ Fex Hub.exe 종료됨 — 업데이트 중이면 잠시 후 자동 재시작됩니다");
+                    }
                 }
             }
             else Log("  FEX — 건너뜀");
