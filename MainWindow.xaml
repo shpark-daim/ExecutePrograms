@@ -354,7 +354,6 @@
                                         <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
                                                 Click="BrowseBatDir_Click"/>
                                         <TextBox x:Name="BatDir"
-                                                 Text="C:\Project\Release\xms"
                                                  ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                                     </DockPanel>
 
@@ -429,7 +428,6 @@
                                             <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
                                                     Click="BrowseExeDir_Click"/>
                                             <TextBox x:Name="ExeDir"
-                                                     Text="C:\Project\xflow\Src\xflowd\bin\Debug\net10.0"
                                                      ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                                         </DockPanel>
                                         <DockPanel Margin="0,4,0,4">

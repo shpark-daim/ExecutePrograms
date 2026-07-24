@@ -28,7 +28,7 @@ public partial class MainWindow : Window
     private bool _suppressProfileSelection = false;
 
     private readonly ObservableCollection<ExtraProgram> _extraPrograms = new();
-    private string _fexDir = @"C:\DAIM\FexHub";
+    private string _fexDir = "";
 
     private CancellationTokenSource? _pollCts;
 
@@ -417,9 +417,43 @@ public partial class MainWindow : Window
 
     // ── 찾기 버튼들 ─────────────────────────────────────
 
+    /// <summary>파일 선택 대화상자를 현재 경로 위치에서 시작하도록 설정합니다.</summary>
+    private static void SeedFileDialog(OpenFileDialog dlg, string current)
+    {
+        if (string.IsNullOrWhiteSpace(current)) return;
+        try
+        {
+            var dir = Path.GetDirectoryName(current);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                dlg.InitialDirectory = dir;
+            if (File.Exists(current))
+                dlg.FileName = Path.GetFileName(current);
+        }
+        catch { /* 무시 */ }
+    }
+
+    /// <summary>폴더 선택 대화상자를 현재 경로 위치에서 시작하도록 설정합니다.</summary>
+    private static void SeedFolderDialog(OpenFolderDialog dlg, string current)
+    {
+        if (string.IsNullOrWhiteSpace(current)) return;
+        try
+        {
+            if (Directory.Exists(current))
+                dlg.InitialDirectory = current;
+            else
+            {
+                var parent = Path.GetDirectoryName(current);
+                if (!string.IsNullOrEmpty(parent) && Directory.Exists(parent))
+                    dlg.InitialDirectory = parent;
+            }
+        }
+        catch { /* 무시 */ }
+    }
+
     private void BrowseXmsMap_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Title = "xms — Map 파일 선택", Filter = "JSON (*.json)|*.json|모든 파일|*.*" };
+        SeedFileDialog(dlg, XmsMapPath.Text);
         if (dlg.ShowDialog() != true) return;
         XmsMapPath.Text     = dlg.FileName;
         XmsCmd2Preview.Text = $@".\xms.exe db create ""{dlg.FileName}""";
@@ -429,6 +463,7 @@ public partial class MainWindow : Window
     private void BrowseXflowMap_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Title = "xflow — Map 파일 선택", Filter = "JSON (*.json)|*.json|모든 파일|*.*" };
+        SeedFileDialog(dlg, XflowMapPath.Text);
         if (dlg.ShowDialog() != true) return;
         XflowMapPath.Text     = dlg.FileName;
         XflowCmd2Preview.Text = $@".\xflow.exe db create -m ""{dlg.FileName}""";
@@ -438,6 +473,7 @@ public partial class MainWindow : Window
     private void BrowseSqlFile_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog { Title = "SQL 파일 선택", Filter = "SQL (*.sql)|*.sql|모든 파일|*.*" };
+        SeedFileDialog(dlg, SqlFilePath.Text);
         if (dlg.ShowDialog() != true) return;
         SqlFilePath.Text = dlg.FileName;
         SaveSettings();
@@ -446,6 +482,7 @@ public partial class MainWindow : Window
     private void BrowseBatDir_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFolderDialog { Title = "BAT — 실행 위치 선택" };
+        SeedFolderDialog(dlg, BatDir.Text);
         if (dlg.ShowDialog() != true) return;
         BatDir.Text = dlg.FolderName;
         SaveSettings();
@@ -454,6 +491,7 @@ public partial class MainWindow : Window
     private void BrowseExeDir_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFolderDialog { Title = "xflowd — 실행 위치 선택" };
+        SeedFolderDialog(dlg, ExeDir.Text);
         if (dlg.ShowDialog() != true) return;
         ExeDir.Text = dlg.FolderName;
         SaveSettings();
@@ -462,6 +500,7 @@ public partial class MainWindow : Window
     private void BrowseXflowSvcDir_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFolderDialog { Title = "xflow 서비스 — 실행 위치 선택" };
+        SeedFolderDialog(dlg, XflowSvcDir.Text);
         if (dlg.ShowDialog() != true) return;
         XflowSvcDir.Text = dlg.FolderName;
         SaveSettings();
@@ -683,6 +722,7 @@ public partial class MainWindow : Window
     {
         var item = (ExtraProgram)((FrameworkElement)sender).DataContext;
         var dlg  = new OpenFileDialog { Filter = "실행 파일 (*.exe)|*.exe|모든 파일|*.*" };
+        SeedFileDialog(dlg, item.ExePath);
         if (dlg.ShowDialog() != true) return;
         item.ExePath = dlg.FileName;
         if (string.IsNullOrEmpty(item.DisplayName))

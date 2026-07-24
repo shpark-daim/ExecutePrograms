@@ -17,10 +17,10 @@ public class AppSettings
     public string DbPassword  { get; set; } = "postgres";
 
     // 프로그램 실행 위치
-    public string BatDir      { get; set; } = @"C:\Project\Release\xms";
-    public string ExeDir      { get; set; } = @"C:\Project\xflow\Src\xflowd\bin\Debug\net10.0";
+    public string BatDir      { get; set; } = "";
+    public string ExeDir      { get; set; } = "";
     public string XflowSvcDir { get; set; } = "";
-    public string FexDir      { get; set; } = @"C:\DAIM\FexHub\Fex\Release\1.14.6.208";
+    public string FexDir      { get; set; } = "";
 
     // xflow 실행 방식: true = 서비스(xflow.exe), false = EXE(xflowd.exe)
     public bool XflowUseService { get; set; } = false;
