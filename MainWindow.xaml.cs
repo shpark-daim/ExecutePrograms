@@ -994,6 +994,7 @@ public partial class MainWindow : Window
                 await sqlDb.RunSqlFileAsync(DbHost.Text, DbPort.Text, DbName.Text,
                                             DbUser.Text, DbPassword.Password, SqlFilePath.Text);
                 Log("  ✓ SQL 완료");
+                sqlWin.Close();
             }
             else
                 Log("  SQL 파일 미설정, 건너뜀");
