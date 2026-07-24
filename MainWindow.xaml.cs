@@ -17,9 +17,6 @@ namespace ExecutePrograms;
 
 public partial class MainWindow : Window
 {
-    private const string XmsExeDir   = @"C:\Project\Release\xms\xms";
-    private const string XflowExeDir = @"C:\Project\xflow\Src\xflow\bin\Debug\net10.0";
-
     private static readonly string AppDir      = AppContext.BaseDirectory;
     private static readonly string SettingsPath = Path.Combine(AppDir, "settings.json");
     private static readonly string ProfilesPath = Path.Combine(AppDir, "profiles.json");
@@ -301,7 +298,9 @@ public partial class MainWindow : Window
     private AppSettings CaptureCurrent() => new()
     {
         XmsMapPath   = XmsMapPath.Text,
+        XmsDbDir     = XmsDbDir.Text,
         XflowMapPath = XflowMapPath.Text,
+        XflowDbDir   = XflowDbDir.Text,
         SqlFilePath  = SqlFilePath.Text,
         BatDir        = BatDir.Text,
         ExeDir        = ExeDir.Text,
@@ -333,7 +332,9 @@ public partial class MainWindow : Window
     private void ApplySettings(AppSettings s)
     {
         XmsMapPath.Text   = s.XmsMapPath;
+        XmsDbDir.Text     = s.XmsDbDir;
         XflowMapPath.Text = s.XflowMapPath;
+        XflowDbDir.Text   = s.XflowDbDir;
         SqlFilePath.Text  = s.SqlFilePath;
         BatDir.Text       = s.BatDir;
         ExeDir.Text       = s.ExeDir;
@@ -503,6 +504,24 @@ public partial class MainWindow : Window
         SeedFolderDialog(dlg, XflowSvcDir.Text);
         if (dlg.ShowDialog() != true) return;
         XflowSvcDir.Text = dlg.FolderName;
+        SaveSettings();
+    }
+
+    private void BrowseXmsDbDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "xms DB — 실행 위치 선택" };
+        SeedFolderDialog(dlg, XmsDbDir.Text);
+        if (dlg.ShowDialog() != true) return;
+        XmsDbDir.Text = dlg.FolderName;
+        SaveSettings();
+    }
+
+    private void BrowseXflowDbDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "xflow DB — 실행 위치 선택" };
+        SeedFolderDialog(dlg, XflowDbDir.Text);
+        if (dlg.ShowDialog() != true) return;
+        XflowDbDir.Text = dlg.FolderName;
         SaveSettings();
     }
 
@@ -973,14 +992,21 @@ public partial class MainWindow : Window
             SetStep(2, StepState.Skipped);
             return;
         }
+        var xmsDbDir = XmsDbDir.Text.Trim();
+        if (string.IsNullOrWhiteSpace(xmsDbDir))
+        {
+            Log("  ⚠ 실행 위치 미설정 — 건너뜀");
+            SetStep(2, StepState.Skipped);
+            return;
+        }
         try
         {
             Log("  db drop -a");
-            await cmd.RunAsync(XmsExeDir, @".\xms.exe db drop -a");
+            await cmd.RunAsync(xmsDbDir, @".\xms.exe db drop -a");
             if (!string.IsNullOrWhiteSpace(XmsMapPath.Text))
             {
                 Log("  db create");
-                await cmd.RunAsync(XmsExeDir, $@".\xms.exe db create ""{XmsMapPath.Text}""");
+                await cmd.RunAsync(xmsDbDir, $@".\xms.exe db create ""{XmsMapPath.Text}""");
             }
             else Log("  Map 미설정 — db create 건너뜀");
             SetStep(2, StepState.Done);
@@ -998,14 +1024,21 @@ public partial class MainWindow : Window
             SetStep(3, StepState.Skipped);
             return;
         }
+        var xflowDbDir = XflowDbDir.Text.Trim();
+        if (string.IsNullOrWhiteSpace(xflowDbDir))
+        {
+            Log("  ⚠ 실행 위치 미설정 — 건너뜀");
+            SetStep(3, StepState.Skipped);
+            return;
+        }
         try
         {
             Log("  db admin drop -a");
-            await cmd.RunAsync(XflowExeDir, @".\xflow.exe db admin drop -a");
+            await cmd.RunAsync(xflowDbDir, @".\xflow.exe db admin drop -a");
             if (!string.IsNullOrWhiteSpace(XflowMapPath.Text))
             {
                 Log("  db create");
-                await cmd.RunAsync(XflowExeDir, $@".\xflow.exe db create -m ""{XflowMapPath.Text}""");
+                await cmd.RunAsync(xflowDbDir, $@".\xflow.exe db create -m ""{XflowMapPath.Text}""");
             }
             else Log("  Map 미설정 — db create 건너뜀");
             SetStep(3, StepState.Done);

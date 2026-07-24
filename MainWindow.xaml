@@ -566,8 +566,10 @@
                         <StackPanel>
                             <DockPanel Margin="0,0,0,4">
                                 <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
-                                <TextBlock Text="C:\Project\Release\xms\xms"
-                                           Style="{StaticResource ExeFixedLabel}"/>
+                                <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                        Click="BrowseXmsDbDir_Click"/>
+                                <TextBox x:Name="XmsDbDir"
+                                         ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                             </DockPanel>
 
                             <DockPanel Margin="0,6,0,10">
@@ -607,8 +609,10 @@
                         <StackPanel>
                             <DockPanel Margin="0,0,0,4">
                                 <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
-                                <TextBlock Text="C:\Project\xflow\Src\xflow\bin\Debug\net10.0"
-                                           Style="{StaticResource ExeFixedLabel}"/>
+                                <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                        Click="BrowseXflowDbDir_Click"/>
+                                <TextBox x:Name="XflowDbDir"
+                                         ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                             </DockPanel>
 
                             <DockPanel Margin="0,6,0,10">

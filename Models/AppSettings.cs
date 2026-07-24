@@ -4,9 +4,11 @@ public class AppSettings
 {
     // xms
     public string XmsMapPath { get; set; } = "";
+    public string XmsDbDir   { get; set; } = "";
 
     // xflow
     public string XflowMapPath { get; set; } = "";
+    public string XflowDbDir   { get; set; } = "";
 
     // PostgreSQL
     public string SqlFilePath { get; set; } = "";
