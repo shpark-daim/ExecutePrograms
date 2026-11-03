@@ -38,6 +38,8 @@ public partial class MainWindow : Window
         ExtraStartChecks.ItemsSource   = _extraPrograms;
         LoadSettings();
         LoadProfiles();
+        Loaded  += (_, _) => StartPolling();   // 실행 전에도 상태 표시·사망 감지가 돌도록 앱 시작부터 폴링
+        ProcessLauncher.OwnedProcessExited += PokePolling;   // 런처가 띄운 프로세스가 죽으면 즉시 상태 갱신
         _extraPrograms.CollectionChanged += (_, _) => RehookRunFlags();   // 추가 프로그램 체크 변경도 전체 선택 집계에 반영
         Closing += (_, _) => { StopPolling(); SaveSettings(); };
     }
@@ -101,109 +103,202 @@ public partial class MainWindow : Window
         _ = Task.Run(() => PollLoopAsync(token));
     }
 
+    // 폴링 대기를 깨우는 신호. 실행 단계 직후·프로세스 종료 직후에 기다리지 않고 바로 다시 확인한다
+    private CancellationTokenSource? _pollDelayCts;
+    private volatile bool _pokePending;
+
+    private void PokePolling()
+    {
+        _pokePending = true;
+        try { _pollDelayCts?.Cancel(); } catch { /* 이미 해제됨 */ }
+    }
+
     private void StopPolling()
     {
         _pollCts?.Cancel();
         _pollCts = null;
     }
 
+    /// <summary>상태 행의 칩 하나. Controllable 이면 우클릭 서비스 제어 메뉴가 붙는다.</summary>
+    private sealed record RowItem(string Name, ServiceStatusChecker.Result Status, bool Controllable);
+
+    /// <summary>직전 폴링에서 본 상태 ("행:이름" → "Running" / "Stopped" ...). RUNNING ↔ 그 외 전이를 로그로 남기는 데 쓴다.</summary>
+    private readonly Dictionary<string, string> _lastStates = new();
+
     private async Task PollLoopAsync(CancellationToken ct)
     {
-        var svc = new ServiceStatusChecker(_ => { });   // 로그 없이 조용히 폴링
+        var svc = new ServiceStatusChecker(_ => { });   // toml 이 없을 때의 폴백 (service status 출력 파싱)
 
         while (!ct.IsCancellationRequested)
         {
-            // xms — 컴포넌트별 멀티라인 파싱
-            string batDir     = "";
-            bool   showXms    = false;
-            bool   xmsService = true;
+            // UI 값은 한 번에 읽는다
+            string batDir = "", xmsExeDir = "", xflowSvcDir = "", exeDir = "";
+            bool   showXms = false, showXflow = false, showFex = false, xmsSvc = true, xflowSvc = false;
+            var    extras  = new List<(string Label, string ProcName)>();
             Dispatcher.Invoke(() =>
             {
-                batDir     = BatDir.Text.Trim();
-                showXms    = XmsServiceBlock.Visibility == Visibility.Visible;
-                xmsService = XmsSvcRadio.IsChecked == true;
+                batDir      = BatDir.Text.Trim();
+                xmsExeDir   = XmsExeDir.Text.Trim();
+                xflowSvcDir = XflowSvcDir.Text.Trim();
+                exeDir      = ExeDir.Text.Trim();
+                showXms     = XmsEnabled;
+                showXflow   = XflowEnabled;
+                showFex     = FexEnabled;
+                xmsSvc      = XmsSvcRadio.IsChecked   == true;
+                xflowSvc    = XflowSvcRadio.IsChecked == true;
+                foreach (var p in _extraPrograms)
+                {
+                    if (string.IsNullOrWhiteSpace(p.ExePath)) continue;
+                    var procName = Path.GetFileNameWithoutExtension(p.ExePath);
+                    extras.Add((string.IsNullOrWhiteSpace(p.DisplayName) ? procName : p.DisplayName, procName));
+                }
             });
 
-            // 서비스 모드는 service status, EXE 모드는 프로세스 생존 여부로 표시
-            bool canPollXms = showXms && (!xmsService || !string.IsNullOrWhiteSpace(batDir));
-            if (canPollXms)
+            // toml(선언된 포트)은 서비스 모드면 서비스 폴더, EXE 모드면 실행 파일 폴더에서 찾는다
+            var xms   = showXms   ? await PollProgramAsync(svc, "xms",   xmsSvc,   batDir,      xmsSvc   ? batDir      : xmsExeDir, "xmsd")   : null;
+            var xflow = showXflow ? await PollProgramAsync(svc, "xflow", xflowSvc, xflowSvcDir, xflowSvc ? xflowSvcDir : exeDir,    "xflowd") : null;
+            // FEX 는 실제 에뮬레이터 프로세스(Fex)만. 런처 역할인 Fex Hub 는 표시하지 않는다
+            var fex   = showFex ? new List<RowItem> { new("Fex", ScmQuery.QueryProcess("Fex"), false) } : null;
+            var extra = extras.Select(e => new RowItem(e.Label, ScmQuery.QueryProcess(e.ProcName), false)).ToList();
+
+            // PID 별 LISTEN 포트를 한 번에 읽어 모든 칩에 붙인다 (준비 상태 판단 + 툴팁)
+            var listen = TcpTable.ListeningPortsByPid();
+            xms   = AttachListenPorts(xms,   listen);
+            xflow = AttachListenPorts(xflow, listen);
+            fex   = AttachListenPorts(fex,   listen);
+            extra = AttachListenPorts(extra, listen)!;
+
+            if (ct.IsCancellationRequested) break;
+
+            LogTransitions("xms",   xms);
+            LogTransitions("xflow", xflow);
+            LogTransitions("FEX",   fex);
+            LogTransitions("etc",   extra);
+
+            Dispatcher.Invoke(() =>
             {
-                try
-                {
-                    var components = xmsService
-                        ? await svc.CheckAllAsync(batDir, "xms.exe")
-                        : [("xmsd", ProcessStatus("xmsd"))];
-                    if (!ct.IsCancellationRequested)
-                        Dispatcher.Invoke(() => UpdateXmsComponents(components));
-                }
-                catch { /* 무시 */ }
-            }
+                if (xms   != null) RenderRow(XmsPlaceholder,   XmsComponentsPanel,   xms,   batDir,      "xms.exe");
+                if (xflow != null) RenderRow(XflowPlaceholder, XflowComponentsPanel, xflow, xflowSvcDir, "xflow.exe");
+                if (fex   != null) RenderRow(FexPlaceholder,   FexComponentsPanel,   fex,   "", "");
+                ExtraStatusRow.Visibility = extra.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+                RenderRow(ExtraPlaceholder, ExtraComponentsPanel, extra, "", "");
+            });
 
-            // xflow — 서비스 모드일 때만 폴링
-            if (!ct.IsCancellationRequested)
+            // 준비 중(INITIALIZING)·중간 상태(PENDING)가 하나라도 있으면 1초, 모두 안정되면 5초.
+            // PokePolling() 이 호출되면 대기를 끊고 즉시 다시 확인한다
+            bool unstable = new[] { xms, xflow, fex, extra }
+                .Where(l => l != null).SelectMany(l => l!)
+                .Any(it => it.Status.IsStarting || it.Status.Kind == ServiceStatusChecker.State.Pending);
+            int interval = unstable ? 1000 : 5000;
+
+            if (_pokePending) { _pokePending = false; continue; }   // 확인하는 동안 신호가 왔으면 바로 한 번 더
+            using (var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
-                string xflowSvcDir = "";
-                bool   useService  = false;
-                Dispatcher.Invoke(() =>
-                {
-                    xflowSvcDir = XflowSvcDir.Text.Trim();
-                    useService  = XflowSvcRadio.IsChecked == true;
-                });
-
-                if (useService && !string.IsNullOrWhiteSpace(xflowSvcDir))
-                {
-                    try
-                    {
-                        var components = await svc.CheckAllAsync(xflowSvcDir, "xflow.exe");
-                        if (!ct.IsCancellationRequested)
-                            Dispatcher.Invoke(() => UpdateXflowComponents(components));
-                    }
-                    catch { /* 무시 */ }
-                }
+                _pollDelayCts = delayCts;
+                try { await Task.Delay(interval, delayCts.Token); }
+                catch (OperationCanceledException) { /* 신호 또는 종료 */ }
+                _pollDelayCts = null;
             }
-
-            try { await Task.Delay(5000, ct); }
-            catch (OperationCanceledException) { break; }
+            _pokePending = false;
+            if (ct.IsCancellationRequested) break;
         }
     }
 
-    /// <summary>xms 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
-    private void UpdateXmsComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
+    /// <summary>
+    /// xms / xflow 한 프로그램의 상태 목록.
+    /// 서비스 모드: {prg}.toml 의 [[Service.Runs]] 이름으로 SCM 을 직접 조회한다 (PID·종료 코드 포함).
+    ///              toml 이 없으면 `{prg}.exe service status` 출력으로 폴백한다.
+    /// EXE 모드:    런처가 실행하는 메인 데몬(xmsd / xflowd) 하나만 프로세스 기준으로 표시한다.
+    /// </summary>
+    private static async Task<List<RowItem>> PollProgramAsync(
+        ServiceStatusChecker svc, string prg, bool useService, string svcDir, string tomlDir, string mainDaemon)
     {
-        XmsPlaceholder.Visibility     = Visibility.Collapsed;
-        XmsComponentsPanel.Visibility = Visibility.Visible;
-        XmsComponentsPanel.Children.Clear();
-
-        var workingDir = BatDir.Text.Trim();
-
-        foreach (var (name, result) in components)
+        var items = new List<RowItem>();
+        try
         {
-            var sp = MakeComponentChip(name, result, workingDir, "xms.exe",
-                                       controllable: XmsSvcRadio.IsChecked == true);
-            XmsComponentsPanel.Children.Add(sp);
+            if (!useService)
+                items.Add(new(mainDaemon, ScmQuery.QueryProcess(mainDaemon), false));
+            else if (!string.IsNullOrWhiteSpace(svcDir))
+            {
+                var names = ScmQuery.ReadServiceNames(Path.Combine(svcDir, $"{prg}.toml"));
+                if (names.Count > 0)
+                    items.AddRange(names.Select(n => new RowItem(n, ScmQuery.QueryService(n), true)));
+                else
+                    items.AddRange((await svc.CheckAllAsync(svcDir, $"{prg}.exe"))
+                                   .Select(c => new RowItem(c.Name, c.Status, true)));
+            }
+
+            // {이름}.Production.toml 의 urls 에 선언된 포트 — RUNNING 이어도 이 포트가 열리기 전엔 "준비 중"
+            items = items.Select(it => it with
+            {
+                Status = it.Status with { ExpectedPorts = ScmQuery.ReadExpectedPorts(tomlDir, it.Name) }
+            }).ToList();
+        }
+        catch { /* 폴링 실패는 다음 주기에 재시도 */ }
+        return items;
+    }
+
+    /// <summary>각 항목의 PID 가 LISTEN 중인 포트를 상태에 붙입니다.</summary>
+    private static List<RowItem>? AttachListenPorts(List<RowItem>? items, Dictionary<int, HashSet<int>> listen)
+        => items?.Select(it =>
+               it.Status.Pid is int pid && listen.TryGetValue(pid, out var ports)
+                   ? it with { Status = it.Status with { ListenPorts = [.. ports.Order()] } }
+                   : it)
+           .ToList();
+
+    /// <summary>
+    /// RUNNING ↔ 그 외 전이를 실행 로그와 이벤트 파일에 남깁니다.
+    /// 첫 관측, 변화 없음, 실행 단계 진행 중(단계 로그가 이미 기록)은 생략합니다.
+    /// </summary>
+    private void LogTransitions(string row, List<RowItem>? items)
+    {
+        if (items == null)
+        {
+            // 제거된 구성요소의 기억은 지워 복원 시 엉뚱한 전이가 찍히지 않게 한다
+            foreach (var k in _lastStates.Keys.Where(k => k.StartsWith($"{row}:")).ToList())
+                _lastStates.Remove(k);
+            return;
+        }
+        foreach (var it in items)
+        {
+            // 준비 중(포트 대기)은 칩 색으로만 보여주고 로그에는 남기지 않는다 → RUNNING 과 같은 상태로 취급
+            var  key = $"{row}:{it.Name}";
+            var  now = it.Status.Kind.ToString();
+            bool had = _lastStates.TryGetValue(key, out var prev);
+            _lastStates[key] = now;
+            if (!had || prev == now || _isRunning) continue;   // 첫 관측·변화 없음·실행 단계 중(단계 로그가 담당)
+
+            bool wasUp = prev == "Running";
+            bool isUp  = now  == "Running";
+            if (wasUp && !isUp)
+                LogEvent($"  ⚠ {it.Name}: RUNNING → {it.Status.Raw}{StatusDetail(it.Status)}");
+            else if (!wasUp && isUp)
+                LogEvent($"  ✓ {it.Name}: {it.Status.Raw}{StatusDetail(it.Status)}");
         }
     }
 
-    /// <summary>EXE 모드 프로그램의 프로세스 생존 여부를 서비스 상태와 같은 형식으로 반환합니다.</summary>
-    private static ServiceStatusChecker.Result ProcessStatus(string processName)
-        => Process.GetProcessesByName(processName).Length > 0
-            ? new(ServiceStatusChecker.State.Running, "RUNNING")
-            : new(ServiceStatusChecker.State.Stopped, "STOPPED");
-
-    /// <summary>xflow 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
-    private void UpdateXflowComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
+    /// <summary>"(PID n, :8787, 종료 코드 c)" 꼴의 부가 정보. 없으면 빈 문자열.</summary>
+    private static string StatusDetail(ServiceStatusChecker.Result r)
     {
-        XflowPlaceholder.Visibility     = Visibility.Collapsed;
-        XflowComponentsPanel.Visibility = Visibility.Visible;
-        XflowComponentsPanel.Children.Clear();
+        var parts = new List<string>();
+        if (r.Pid is int pid) parts.Add($"PID {pid}");
+        if (r.ListenPorts is { Length: > 0 }) parts.Add(PortList(r.ListenPorts));
+        if (r.ExitCode is int c && c != 0 && r.Kind != ServiceStatusChecker.State.Running) parts.Add($"종료 코드 {c}");
+        return parts.Count == 0 ? "" : $" ({string.Join(", ", parts)})";
+    }
 
-        var workingDir = XflowSvcDir.Text.Trim();
+    private static string PortList(int[]? ports)
+        => ports is { Length: > 0 } ? string.Join(" ", ports.Select(p => $":{p}")) : "";
 
-        foreach (var (name, result) in components)
-        {
-            var sp = MakeComponentChip(name, result, workingDir, "xflow.exe");
-            XflowComponentsPanel.Children.Add(sp);
-        }
+    /// <summary>상태 행 하나를 칩으로 다시 그립니다. 항목이 없으면 "—" 를 보입니다.</summary>
+    private void RenderRow(TextBlock placeholder, WrapPanel panel, List<RowItem> items, string workingDir, string exeName)
+    {
+        panel.Children.Clear();
+        bool any = items.Count > 0;
+        placeholder.Visibility = any ? Visibility.Collapsed : Visibility.Visible;
+        panel.Visibility       = any ? Visibility.Visible   : Visibility.Collapsed;
+        foreach (var it in items)
+            panel.Children.Add(MakeComponentChip(it.Name, it.Status, workingDir, exeName, it.Controllable));
     }
 
     /// <summary>컴포넌트 상태 칩(StackPanel)을 생성합니다. 우클릭 시 서비스 제어 메뉴가 표시됩니다.</summary>
@@ -212,19 +307,33 @@ public partial class MainWindow : Window
         string name, ServiceStatusChecker.Result result,
         string workingDir, string exeName, bool controllable = true)
     {
-        var (dotColor, textColor) = result.Kind switch
-        {
-            ServiceStatusChecker.State.Running => ("#2EA043", "#1A6B2A"),
-            ServiceStatusChecker.State.Pending => ("#FFC107", "#7D5600"),
-            _                                  => ("#E53935", "#C62828"),
-        };
+        // 초록 = 준비 완료, 노랑 = 떠 있지만 아직 준비 안 됨(SCM PENDING 또는 선언 포트 미개방), 빨강 = 중지/오류
+        var (dotColor, textColor) = result.IsStarting
+            ? ("#FFC107", "#7D5600")
+            : result.Kind switch
+            {
+                ServiceStatusChecker.State.Running => ("#2EA043", "#1A6B2A"),
+                ServiceStatusChecker.State.Pending => ("#FFC107", "#7D5600"),
+                _                                  => ("#E53935", "#C62828"),
+            };
+
+        // 툴팁: PID, 포트 상태, (중지 상태일 때) 마지막 종료 코드, 서비스 제어 안내
+        var tip = new List<string>();
+        if (result.Pid is int pid) tip.Add($"PID {pid}");
+        if (result.IsStarting)
+            tip.Add($"포트 {PortList(result.ExpectedPorts)} 아직 열리지 않음 — 초기화(map 계산 등) 진행 중");
+        else if (result.ListenPorts is { Length: > 0 })
+            tip.Add($"리슨 {PortList(result.ListenPorts)}");
+        if (result.ExitCode is int code && result.Kind != ServiceStatusChecker.State.Running)
+            tip.Add($"마지막 종료 코드 {code}");
+        if (controllable) tip.Add("우클릭 — 서비스 제어");
 
         var sp = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Margin      = new Thickness(0, 0, 10, 2),
             Cursor      = controllable ? System.Windows.Input.Cursors.Hand : null,
-            ToolTip     = controllable ? "우클릭 — 서비스 제어" : null,
+            ToolTip     = tip.Count > 0 ? string.Join("\n", tip) : null,
         };
 
         sp.Children.Add(new TextBlock
@@ -246,7 +355,7 @@ public partial class MainWindow : Window
         });
         sp.Children.Add(new TextBlock
         {
-            Text              = result.Raw,
+            Text              = result.IsStarting ? "INITIALIZING" : result.Raw,   // 떠 있지만 포트 열리기 전
             FontSize          = 11,
             Foreground        = ToBrush(textColor),
             VerticalAlignment = VerticalAlignment.Center,
@@ -636,6 +745,7 @@ public partial class MainWindow : Window
     private void SetFexVisible(bool v)
     {
         FexServiceBlock.Visibility = v ? Visibility.Visible : Visibility.Collapsed;
+        FexStatusRow.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
         FexStopCheck.Visibility    = v ? Visibility.Visible : Visibility.Collapsed;
         FexStartCheck.Visibility   = v ? Visibility.Visible : Visibility.Collapsed;
         RestoreFexBtn.Visibility   = v ? Visibility.Collapsed : Visibility.Visible;
@@ -900,6 +1010,7 @@ public partial class MainWindow : Window
             ExecuteBtn.IsEnabled = true;
             ExecuteBtn.Content   = "▶  실행";
             SetAllRunBtns(true);
+            PokePolling();   // 단계가 끝나면 5초 기다리지 않고 바로 상태 갱신
         }
     }
 
@@ -920,7 +1031,7 @@ public partial class MainWindow : Window
             ResetAllSteps();
             var cmd = new CommandRunner(Log);
             var db  = new DbInitializer(Log);
-            var prg = new ProcessLauncher(Log);
+            var prg = new ProcessLauncher(Log, LogEvent);
             await Step1Async(cmd, prg);
             await Step2Async(cmd);
             await Step3Async(cmd);
@@ -939,7 +1050,7 @@ public partial class MainWindow : Window
         await RunWithLock(async () =>
         {
             SetStep(1, StepState.Inactive);
-            await Step1Async(new CommandRunner(Log), new ProcessLauncher(Log));
+            await Step1Async(new CommandRunner(Log), new ProcessLauncher(Log, LogEvent));
         });
     }
 
@@ -979,7 +1090,7 @@ public partial class MainWindow : Window
         await RunWithLock(async () =>
         {
             SetStep(5, StepState.Inactive);
-            await Step5Async(new CommandRunner(Log), new ProcessLauncher(Log));
+            await Step5Async(new CommandRunner(Log), new ProcessLauncher(Log, LogEvent));
             StartPolling();
         });
     }
@@ -1057,6 +1168,7 @@ public partial class MainWindow : Window
             catch (Exception ex) { Log($"  ⚠ {label} 건너뜀: {ex.Message}"); }
         }
 
+        PokePolling();
         SetStep(1, StepState.Done);
     }
 
@@ -1238,6 +1350,7 @@ public partial class MainWindow : Window
                 await prg.StartInDirAsync(Path.GetDirectoryName(p.ExePath) ?? "", p.FileName, p.ShowWindow);
             }
 
+            PokePolling();
             SetStep(5, StepState.Done);
         }
         catch (Exception ex) { SetStep(5, StepState.Error); Log($"  ❌ {ex.Message}"); }
@@ -1408,5 +1521,22 @@ public partial class MainWindow : Window
             LogBox.AppendText($"[{DateTime.Now:HH:mm:ss}]  {message}{Environment.NewLine}");
             LogScroll.ScrollToBottom();
         });
+    }
+
+    /// <summary>
+    /// 프로세스 생애 이벤트(종료, 상태 전이). 실행 로그에 더해 logs/events-날짜.log 에도 남깁니다.
+    /// 실행 버튼이 로그창을 비워도 파일에는 남습니다.
+    /// </summary>
+    private void LogEvent(string message)
+    {
+        Log(message);
+        try
+        {
+            var dir = Path.Combine(AppDir, "logs");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, $"events-{DateTime.Now:yyyyMMdd}.log"),
+                               $"[{DateTime.Now:HH:mm:ss}]{message}{Environment.NewLine}");
+        }
+        catch { /* 파일 기록 실패는 무시 */ }
     }
 }

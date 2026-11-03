@@ -20,7 +20,19 @@ public class ServiceStatusChecker(Action<string> log)
 
     public enum State { Running, Stopped, Pending, NotRegistered, Error }
 
-    public record Result(State Kind, string Raw);
+    /// <param name="Pid">실행 중인 프로세스 ID. SCM 직접 조회·프로세스 조회에서만 채워짐</param>
+    /// <param name="ExitCode">마지막 종료 코드. SCM 직접 조회에서만 채워짐</param>
+    /// <param name="ListenPorts">이 PID 가 실제로 LISTEN 중인 TCP 포트</param>
+    /// <param name="ExpectedPorts">설정(toml urls)에 선언된 포트. 비어 있으면 준비 상태 판단을 하지 않음</param>
+    public record Result(State Kind, string Raw, int? Pid = null, int? ExitCode = null,
+                         int[]? ListenPorts = null, int[]? ExpectedPorts = null)
+    {
+        /// <summary>RUNNING 이지만 선언된 포트가 아직 하나도 열리지 않은 상태 (map 계산 등 초기화 중)</summary>
+        public bool IsStarting =>
+            Kind == State.Running
+            && ExpectedPorts is { Length: > 0 }
+            && !ExpectedPorts.Any(p => ListenPorts?.Contains(p) == true);
+    }
 
     // ── 상태 조회 ─────────────────────────────────────────
 

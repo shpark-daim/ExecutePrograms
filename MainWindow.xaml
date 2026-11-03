@@ -985,7 +985,7 @@
                     <DockPanel Margin="0,0,0,8">
                         <TextBlock DockPanel.Dock="Right" Text="5초 갱신" FontSize="10"
                                    Foreground="#C0C8D0" VerticalAlignment="Center"/>
-                        <TextBlock Text="서비스 상태" FontSize="11" FontWeight="SemiBold"
+                        <TextBlock Text="실행 상태" FontSize="11" FontWeight="SemiBold"
                                    Foreground="#8B949E"/>
                     </DockPanel>
 
@@ -1005,7 +1005,7 @@
                     </Grid>
 
                     <!-- xflow 행 -->
-                    <Grid x:Name="XflowStatusRow">
+                    <Grid x:Name="XflowStatusRow" Margin="0,0,0,6">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="44"/>
                             <ColumnDefinition Width="*"/>
@@ -1016,6 +1016,36 @@
                             <TextBlock x:Name="XflowPlaceholder" Text="—" FontSize="11"
                                        Foreground="#8B949E"/>
                             <WrapPanel x:Name="XflowComponentsPanel" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- FEX 행 -->
+                    <Grid x:Name="FexStatusRow" Margin="0,0,0,6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="44"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="FEX" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#57606A" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="FexPlaceholder" Text="—" FontSize="11"
+                                       Foreground="#8B949E"/>
+                            <WrapPanel x:Name="FexComponentsPanel" Visibility="Collapsed"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- 추가 프로그램 행 (등록된 항목이 있을 때만 표시) -->
+                    <Grid x:Name="ExtraStatusRow" Visibility="Collapsed">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="44"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="etc" FontSize="11" FontWeight="SemiBold"
+                                   Foreground="#57606A" VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="ExtraPlaceholder" Text="—" FontSize="11"
+                                       Foreground="#8B949E"/>
+                            <WrapPanel x:Name="ExtraComponentsPanel" Visibility="Collapsed"/>
                         </StackPanel>
                     </Grid>
 
