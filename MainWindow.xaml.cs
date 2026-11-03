@@ -326,6 +326,8 @@ public partial class MainWindow : Window
         XflowUseService = XflowSvcRadio.IsChecked == true,
         XmsUseService   = XmsSvcRadio.IsChecked == true,
         XmsExeDir       = XmsExeDir.Text,
+        XmsShowWindow   = XmsShowWindowCheck.IsChecked == true,
+        XflowShowWindow = XflowShowWindowCheck.IsChecked == true,
         FexDir        = _fexDir,
         DbHost       = DbHost.Text,
         DbPort       = DbPort.Text,
@@ -369,6 +371,8 @@ public partial class MainWindow : Window
         if (s.XmsUseService) XmsSvcRadio.IsChecked = true;
         else                 XmsExeRadio.IsChecked = true;
         ApplyXmsMode(s.XmsUseService);
+        XmsShowWindowCheck.IsChecked   = s.XmsShowWindow;
+        XflowShowWindowCheck.IsChecked = s.XflowShowWindow;
         DbHost.Text         = s.DbHost;
         DbPort.Text         = s.DbPort;
         DbName.Text         = s.DbName;
@@ -568,8 +572,9 @@ public partial class MainWindow : Window
 
     private void ApplyXflowMode(bool useService)
     {
-        XflowSvcPanel.Visibility = useService ? Visibility.Visible   : Visibility.Collapsed;
-        XflowExePanel.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;
+        XflowSvcPanel.Visibility        = useService ? Visibility.Visible   : Visibility.Collapsed;
+        XflowExePanel.Visibility        = useService ? Visibility.Collapsed : Visibility.Visible;
+        XflowShowWindowCheck.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;  // 창 표시는 EXE 전용
     }
 
     private void XmsMode_Changed(object sender, RoutedEventArgs e)
@@ -581,8 +586,9 @@ public partial class MainWindow : Window
 
     private void ApplyXmsMode(bool useService)
     {
-        XmsSvcPanel.Visibility = useService ? Visibility.Visible   : Visibility.Collapsed;
-        XmsExePanel.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;
+        XmsSvcPanel.Visibility        = useService ? Visibility.Visible   : Visibility.Collapsed;
+        XmsExePanel.Visibility        = useService ? Visibility.Collapsed : Visibility.Visible;
+        XmsShowWindowCheck.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;  // 창 표시는 EXE 전용
     }
 
     // ── 구성요소 표시 / 제거 ──────────────────────────────
@@ -1166,7 +1172,7 @@ public partial class MainWindow : Window
                 else if (XmsExeRadio.IsChecked == true && !string.IsNullOrWhiteSpace(XmsExeDir.Text))
                 {
                     Log("  xmsd.exe 실행");
-                    await prg.StartInDirAsync(XmsExeDir.Text, "xmsd.exe");
+                    await prg.StartInDirAsync(XmsExeDir.Text, "xmsd.exe", XmsShowWindowCheck.IsChecked == true);
                 }
                 else Log("  xms — 경로 미설정, 건너뜀");
             }
@@ -1183,7 +1189,7 @@ public partial class MainWindow : Window
                 else if (XflowExeRadio.IsChecked == true && !string.IsNullOrWhiteSpace(ExeDir.Text))
                 {
                     Log("  xflowd.exe 실행");
-                    await prg.StartInDirAsync(ExeDir.Text, "xflowd.exe");
+                    await prg.StartInDirAsync(ExeDir.Text, "xflowd.exe", XflowShowWindowCheck.IsChecked == true);
                 }
                 else Log("  xflow — 경로 미설정, 건너뜀");
             }

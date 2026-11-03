@@ -31,6 +31,10 @@ public class AppSettings
     public bool   XmsUseService { get; set; } = true;
     public string XmsExeDir     { get; set; } = "";
 
+    // EXE 모드 창 표시 여부 (false 면 창 없이 실행하고 stderr 를 로그창에 수집)
+    public bool XmsShowWindow   { get; set; } = true;
+    public bool XflowShowWindow { get; set; } = true;
+
     // FEX 워크스페이스 (비어있으면 Default)
     public string FexWorkspace { get; set; } = "";
 

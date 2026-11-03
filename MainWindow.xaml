@@ -341,18 +341,23 @@
                             <!-- ── xms (서비스 / EXE 선택) ── -->
                             <Border x:Name="XmsServiceBlock" Style="{StaticResource PrgBlock}">
                                 <StackPanel>
-                                    <!-- 헤더 + 모드 선택 -->
+                                    <!-- 헤더: 이름 (왼쪽) / 모드 선택 + 창 표시 + 제거 (오른쪽 정렬) -->
                                     <DockPanel Margin="0,0,0,8">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
-                                            <RadioButton x:Name="XmsSvcRadio" Content="서비스"
-                                                         GroupName="XmsMode" IsChecked="True"
-                                                         FontSize="11" Foreground="#57606A"
-                                                         Margin="0,0,10,0"
-                                                         Checked="XmsMode_Changed"/>
+                                            <CheckBox x:Name="XmsShowWindowCheck" Content="창 표시"
+                                                      IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,0"
+                                                      FontSize="11" Foreground="#57606A"
+                                                      ToolTip="EXE 모드에서 해제하면 창 없이 실행하고 오류 출력을 로그창에 표시합니다"/>
                                             <RadioButton x:Name="XmsExeRadio" Content="EXE"
                                                          GroupName="XmsMode" IsChecked="False"
                                                          FontSize="11" Foreground="#57606A"
+                                                         Margin="0,0,10,0" VerticalAlignment="Center"
+                                                         Checked="XmsMode_Changed"/>
+                                            <RadioButton x:Name="XmsSvcRadio" Content="서비스"
+                                                         GroupName="XmsMode" IsChecked="True"
+                                                         FontSize="11" Foreground="#57606A"
+                                                         VerticalAlignment="Center"
                                                          Checked="XmsMode_Changed"/>
                                             <Rectangle Width="1" Fill="#D0D7DE" Margin="8,0"/>
                                             <Button Content="✕" Width="20" Height="20"
@@ -360,7 +365,7 @@
                                                     Click="RemoveXms_Click"/>
                                         </StackPanel>
                                         <TextBlock Text="● xms" Style="{StaticResource PrgLabel}"
-                                                   Margin="0,0,0,0"/>
+                                                   Margin="0,0,0,0" VerticalAlignment="Center"/>
                                     </DockPanel>
 
                                     <!-- 서비스 모드 (xms.exe) -->
@@ -414,18 +419,23 @@
                             <!-- ── xflow (서비스 / EXE 선택) ── -->
                             <Border x:Name="XflowServiceBlock" Style="{StaticResource PrgBlock}">
                                 <StackPanel>
-                                    <!-- 헤더 + 모드 선택 -->
+                                    <!-- 헤더: 이름 (왼쪽) / 모드 선택 + 창 표시 + 제거 (오른쪽 정렬) -->
                                     <DockPanel Margin="0,0,0,8">
                                         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
                                                     VerticalAlignment="Center">
-                                            <RadioButton x:Name="XflowSvcRadio" Content="서비스"
-                                                         GroupName="XflowMode" IsChecked="False"
-                                                         FontSize="11" Foreground="#57606A"
-                                                         Margin="0,0,10,0"
-                                                         Checked="XflowMode_Changed"/>
+                                            <CheckBox x:Name="XflowShowWindowCheck" Content="창 표시"
+                                                      IsChecked="True" VerticalAlignment="Center" Margin="0,0,14,0"
+                                                      FontSize="11" Foreground="#57606A"
+                                                      ToolTip="EXE 모드에서 해제하면 창 없이 실행하고 오류 출력을 로그창에 표시합니다"/>
                                             <RadioButton x:Name="XflowExeRadio" Content="EXE"
                                                          GroupName="XflowMode" IsChecked="True"
                                                          FontSize="11" Foreground="#57606A"
+                                                         Margin="0,0,10,0" VerticalAlignment="Center"
+                                                         Checked="XflowMode_Changed"/>
+                                            <RadioButton x:Name="XflowSvcRadio" Content="서비스"
+                                                         GroupName="XflowMode" IsChecked="False"
+                                                         FontSize="11" Foreground="#57606A"
+                                                         VerticalAlignment="Center"
                                                          Checked="XflowMode_Changed"/>
                                             <Rectangle Width="1" Fill="#D0D7DE" Margin="8,0"/>
                                             <Button Content="✕" Width="20" Height="20"
@@ -433,7 +443,7 @@
                                                     Click="RemoveXflow_Click"/>
                                         </StackPanel>
                                         <TextBlock Text="● xflow" Style="{StaticResource PrgLabel}"
-                                                   Margin="0,0,0,0"/>
+                                                   Margin="0,0,0,0" VerticalAlignment="Center"/>
                                     </DockPanel>
 
                                     <!-- 서비스 모드 (xflow.exe) -->
