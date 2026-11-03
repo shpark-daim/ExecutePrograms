@@ -338,38 +338,76 @@
                         </GroupBox.Header>
                         <StackPanel>
 
-                            <!-- ── xms 서비스 ── -->
+                            <!-- ── xms (서비스 / EXE 선택) ── -->
                             <Border x:Name="XmsServiceBlock" Style="{StaticResource PrgBlock}">
                                 <StackPanel>
+                                    <!-- 헤더 + 모드 선택 -->
                                     <DockPanel Margin="0,0,0,8">
-                                        <Button DockPanel.Dock="Right" Content="✕" Width="20" Height="20"
-                                                Style="{StaticResource RemoveBtn}" ToolTip="xms 제거"
-                                                Click="RemoveXms_Click"/>
-                                        <TextBlock Text="● xms  (서비스)"
-                                                   FontSize="12" FontWeight="SemiBold" Foreground="#24292F"/>
+                                        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                                                    VerticalAlignment="Center">
+                                            <RadioButton x:Name="XmsSvcRadio" Content="서비스"
+                                                         GroupName="XmsMode" IsChecked="True"
+                                                         FontSize="11" Foreground="#57606A"
+                                                         Margin="0,0,10,0"
+                                                         Checked="XmsMode_Changed"/>
+                                            <RadioButton x:Name="XmsExeRadio" Content="EXE"
+                                                         GroupName="XmsMode" IsChecked="False"
+                                                         FontSize="11" Foreground="#57606A"
+                                                         Checked="XmsMode_Changed"/>
+                                            <Rectangle Width="1" Fill="#D0D7DE" Margin="8,0"/>
+                                            <Button Content="✕" Width="20" Height="20"
+                                                    Style="{StaticResource RemoveBtn}" ToolTip="xms 제거"
+                                                    Click="RemoveXms_Click"/>
+                                        </StackPanel>
+                                        <TextBlock Text="● xms" Style="{StaticResource PrgLabel}"
+                                                   Margin="0,0,0,0"/>
                                     </DockPanel>
 
-                                    <DockPanel Margin="0,0,0,4">
-                                        <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
-                                        <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
-                                                Click="BrowseBatDir_Click"/>
-                                        <TextBox x:Name="BatDir"
-                                                 ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
-                                    </DockPanel>
+                                    <!-- 서비스 모드 (xms.exe) -->
+                                    <StackPanel x:Name="XmsSvcPanel" Visibility="Visible">
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                                            <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                                    Click="BrowseBatDir_Click"/>
+                                            <TextBox x:Name="BatDir"
+                                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,4,0,4">
+                                            <TextBlock Text="시작" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
+                                            <Border Style="{StaticResource CmdBorder}">
+                                                <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service start"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="종료" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
+                                            <Border Style="{StaticResource CmdBorder}">
+                                                <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service stop"/>
+                                            </Border>
+                                        </DockPanel>
+                                    </StackPanel>
 
-                                    <DockPanel Margin="0,4,0,4">
-                                        <TextBlock Text="시작" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
-                                        <Border Style="{StaticResource CmdBorder}">
-                                            <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service start"/>
-                                        </Border>
-                                    </DockPanel>
-
-                                    <DockPanel>
-                                        <TextBlock Text="종료" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
-                                        <Border Style="{StaticResource CmdBorder}">
-                                            <TextBlock Style="{StaticResource CmdText}" Text=".\xms.exe service stop"/>
-                                        </Border>
-                                    </DockPanel>
+                                    <!-- EXE 모드 (xmsd.exe) -->
+                                    <StackPanel x:Name="XmsExePanel" Visibility="Collapsed">
+                                        <DockPanel Margin="0,0,0,4">
+                                            <TextBlock Text="실행 위치" Style="{StaticResource FieldLabel}" Width="72"/>
+                                            <Button Style="{StaticResource BrowseBtn}" DockPanel.Dock="Right"
+                                                    Click="BrowseXmsExeDir_Click"/>
+                                            <TextBox x:Name="XmsExeDir"
+                                                     ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                                        </DockPanel>
+                                        <DockPanel Margin="0,4,0,4">
+                                            <TextBlock Text="시작" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
+                                            <Border Style="{StaticResource CmdBorder}">
+                                                <TextBlock Style="{StaticResource CmdText}" Text=".\xmsd.exe"/>
+                                            </Border>
+                                        </DockPanel>
+                                        <DockPanel>
+                                            <TextBlock Text="종료" Style="{StaticResource FieldLabel}" Width="36" DockPanel.Dock="Left"/>
+                                            <Border Style="{StaticResource CmdBorder}">
+                                                <TextBlock Style="{StaticResource CmdText}" Text="xmsd.exe 프로세스 종료"/>
+                                            </Border>
+                                        </DockPanel>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
 
@@ -526,7 +564,7 @@
 
                             <!-- 복구 버튼 + 프로그램 추가 버튼 (한 줄) -->
                             <WrapPanel HorizontalAlignment="Right" Margin="0,0,0,4">
-                                <Button x:Name="RestoreXmsBtn" Content="+ xms (서비스)"
+                                <Button x:Name="RestoreXmsBtn" Content="+ xms"
                                         Visibility="Collapsed" Click="RestoreXms_Click"
                                         Style="{StaticResource GhostAmberBtn}"
                                         Height="30" Padding="10,0" FontSize="12" Margin="0,0,6,0"/>

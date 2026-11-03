@@ -114,19 +114,25 @@ public partial class MainWindow : Window
         while (!ct.IsCancellationRequested)
         {
             // xms — 컴포넌트별 멀티라인 파싱
-            string batDir  = "";
-            bool   showXms = false;
+            string batDir     = "";
+            bool   showXms    = false;
+            bool   xmsService = true;
             Dispatcher.Invoke(() =>
             {
-                batDir  = BatDir.Text.Trim();
-                showXms = XmsServiceBlock.Visibility == Visibility.Visible;
+                batDir     = BatDir.Text.Trim();
+                showXms    = XmsServiceBlock.Visibility == Visibility.Visible;
+                xmsService = XmsSvcRadio.IsChecked == true;
             });
 
-            if (showXms && !string.IsNullOrWhiteSpace(batDir))
+            // 서비스 모드는 service status, EXE 모드는 프로세스 생존 여부로 표시
+            bool canPollXms = showXms && (!xmsService || !string.IsNullOrWhiteSpace(batDir));
+            if (canPollXms)
             {
                 try
                 {
-                    var components = await svc.CheckAllAsync(batDir, "xms.exe");
+                    var components = xmsService
+                        ? await svc.CheckAllAsync(batDir, "xms.exe")
+                        : [("xmsd", ProcessStatus("xmsd"))];
                     if (!ct.IsCancellationRequested)
                         Dispatcher.Invoke(() => UpdateXmsComponents(components));
                 }
@@ -172,10 +178,17 @@ public partial class MainWindow : Window
 
         foreach (var (name, result) in components)
         {
-            var sp = MakeComponentChip(name, result, workingDir, "xms.exe");
+            var sp = MakeComponentChip(name, result, workingDir, "xms.exe",
+                                       controllable: XmsSvcRadio.IsChecked == true);
             XmsComponentsPanel.Children.Add(sp);
         }
     }
+
+    /// <summary>EXE 모드 프로그램의 프로세스 생존 여부를 서비스 상태와 같은 형식으로 반환합니다.</summary>
+    private static ServiceStatusChecker.Result ProcessStatus(string processName)
+        => Process.GetProcessesByName(processName).Length > 0
+            ? new(ServiceStatusChecker.State.Running, "RUNNING")
+            : new(ServiceStatusChecker.State.Stopped, "STOPPED");
 
     /// <summary>xflow 컴포넌트 목록을 WrapPanel에 동적으로 그립니다.</summary>
     private void UpdateXflowComponents(List<(string Name, ServiceStatusChecker.Result Status)> components)
@@ -194,9 +207,10 @@ public partial class MainWindow : Window
     }
 
     /// <summary>컴포넌트 상태 칩(StackPanel)을 생성합니다. 우클릭 시 서비스 제어 메뉴가 표시됩니다.</summary>
+    /// <param name="controllable">false 면 서비스 제어 메뉴를 붙이지 않습니다 (EXE 모드 프로세스 칩)</param>
     private StackPanel MakeComponentChip(
         string name, ServiceStatusChecker.Result result,
-        string workingDir, string exeName)
+        string workingDir, string exeName, bool controllable = true)
     {
         var (dotColor, textColor) = result.Kind switch
         {
@@ -209,8 +223,8 @@ public partial class MainWindow : Window
         {
             Orientation = Orientation.Horizontal,
             Margin      = new Thickness(0, 0, 10, 2),
-            Cursor      = System.Windows.Input.Cursors.Hand,
-            ToolTip     = "우클릭 — 서비스 제어",
+            Cursor      = controllable ? System.Windows.Input.Cursors.Hand : null,
+            ToolTip     = controllable ? "우클릭 — 서비스 제어" : null,
         };
 
         sp.Children.Add(new TextBlock
@@ -237,6 +251,8 @@ public partial class MainWindow : Window
             Foreground        = ToBrush(textColor),
             VerticalAlignment = VerticalAlignment.Center,
         });
+
+        if (!controllable) return sp;
 
         // 우클릭 컨텍스트 메뉴
         var menu = new ContextMenu();
@@ -308,6 +324,8 @@ public partial class MainWindow : Window
         ExeDir        = ExeDir.Text,
         XflowSvcDir   = XflowSvcDir.Text,
         XflowUseService = XflowSvcRadio.IsChecked == true,
+        XmsUseService   = XmsSvcRadio.IsChecked == true,
+        XmsExeDir       = XmsExeDir.Text,
         FexDir        = _fexDir,
         DbHost       = DbHost.Text,
         DbPort       = DbPort.Text,
@@ -346,6 +364,11 @@ public partial class MainWindow : Window
         if (s.XflowUseService) XflowSvcRadio.IsChecked = true;
         else                   XflowExeRadio.IsChecked  = true;
         ApplyXflowMode(s.XflowUseService);
+        // xms 모드 복원
+        XmsExeDir.Text = s.XmsExeDir;
+        if (s.XmsUseService) XmsSvcRadio.IsChecked = true;
+        else                 XmsExeRadio.IsChecked = true;
+        ApplyXmsMode(s.XmsUseService);
         DbHost.Text         = s.DbHost;
         DbPort.Text         = s.DbPort;
         DbName.Text         = s.DbName;
@@ -500,6 +523,15 @@ public partial class MainWindow : Window
         SaveSettings();
     }
 
+    private void BrowseXmsExeDir_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "xmsd — 실행 위치 선택" };
+        SeedFolderDialog(dlg, XmsExeDir.Text);
+        if (dlg.ShowDialog() != true) return;
+        XmsExeDir.Text = dlg.FolderName;
+        SaveSettings();
+    }
+
     private void BrowseXflowSvcDir_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFolderDialog { Title = "xflow 서비스 — 실행 위치 선택" };
@@ -538,6 +570,19 @@ public partial class MainWindow : Window
     {
         XflowSvcPanel.Visibility = useService ? Visibility.Visible   : Visibility.Collapsed;
         XflowExePanel.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void XmsMode_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!IsLoaded) return;
+        ApplyXmsMode(XmsSvcRadio.IsChecked == true);
+        SaveSettings();
+    }
+
+    private void ApplyXmsMode(bool useService)
+    {
+        XmsSvcPanel.Visibility = useService ? Visibility.Visible   : Visibility.Collapsed;
+        XmsExePanel.Visibility = useService ? Visibility.Collapsed : Visibility.Visible;
     }
 
     // ── 구성요소 표시 / 제거 ──────────────────────────────
@@ -941,17 +986,26 @@ public partial class MainWindow : Window
         Log("════ ① 종료 단계 ════");
         var svc = new ServiceStatusChecker(Log);
 
-        if (XmsEnabled && BatStopCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+        if (XmsEnabled && BatStopCheck.IsChecked == true)
         {
             try
             {
-                Log("  xms service stop (최대 30초 대기)");
-                await cmd.RunAsync(BatDir.Text, @".\xms.exe service stop", timeoutMs: 30_000);
-                await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
+                if (XmsSvcRadio.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+                {
+                    Log("  xms service stop (최대 30초 대기)");
+                    await cmd.RunAsync(BatDir.Text, @".\xms.exe service stop", timeoutMs: 30_000);
+                    await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
+                }
+                else if (XmsExeRadio.IsChecked == true)
+                {
+                    Log("  xmsd.exe 프로세스 종료");
+                    await prg.KillProcessByNameAsync("xmsd.exe");
+                }
+                else Log("  xms — 경로 미설정, 건너뜀");
             }
-            catch (Exception ex) { Log($"  ⚠ xms service stop 건너뜀: {ex.Message}"); }
+            catch (Exception ex) { Log($"  ⚠ xms 건너뜀: {ex.Message}"); }
         }
-        else Log("  xms 서비스 — 건너뜀");
+        else Log("  xms — 건너뜀");
 
         if (XflowEnabled && ExeStopCheck.IsChecked == true)
         {
@@ -1101,13 +1155,22 @@ public partial class MainWindow : Window
         var svc = new ServiceStatusChecker(Log);
         try
         {
-            if (XmsEnabled && BatStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+            if (XmsEnabled && BatStartCheck.IsChecked == true)
             {
-                Log("  xms service start");
-                await cmd.RunAsync(BatDir.Text, @".\xms.exe service start", timeoutMs: 30_000);
-                await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
+                if (XmsSvcRadio.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+                {
+                    Log("  xms service start");
+                    await cmd.RunAsync(BatDir.Text, @".\xms.exe service start", timeoutMs: 30_000);
+                    await svc.LogStatusAsync("xms", BatDir.Text, "xms.exe");
+                }
+                else if (XmsExeRadio.IsChecked == true && !string.IsNullOrWhiteSpace(XmsExeDir.Text))
+                {
+                    Log("  xmsd.exe 실행");
+                    await prg.StartInDirAsync(XmsExeDir.Text, "xmsd.exe");
+                }
+                else Log("  xms — 경로 미설정, 건너뜀");
             }
-            else Log("  xms 서비스 — 건너뜀");
+            else Log("  xms — 건너뜀");
 
             if (XflowEnabled && ExeStartCheck.IsChecked == true)
             {

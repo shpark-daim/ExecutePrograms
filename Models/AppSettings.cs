@@ -27,6 +27,10 @@ public class AppSettings
     // xflow 실행 방식: true = 서비스(xflow.exe), false = EXE(xflowd.exe)
     public bool XflowUseService { get; set; } = false;
 
+    // xms 실행 방식: true = 서비스(xms.exe), false = EXE(xmsd.exe). 기존 설정 호환을 위해 기본값 서비스
+    public bool   XmsUseService { get; set; } = true;
+    public string XmsExeDir     { get; set; } = "";
+
     // FEX 워크스페이스 (비어있으면 Default)
     public string FexWorkspace { get; set; } = "";
 
