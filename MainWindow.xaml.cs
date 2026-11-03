@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
@@ -37,6 +38,7 @@ public partial class MainWindow : Window
         ExtraStartChecks.ItemsSource   = _extraPrograms;
         LoadSettings();
         LoadProfiles();
+        _extraPrograms.CollectionChanged += (_, _) => RehookRunFlags();   // 추가 프로그램 체크 변경도 전체 선택 집계에 반영
         Closing += (_, _) => { StopPolling(); SaveSettings(); };
     }
 
@@ -540,6 +542,22 @@ public partial class MainWindow : Window
 
     // ── 구성요소 표시 / 제거 ──────────────────────────────
 
+    // 제거(✕)된 구성요소는 체크박스가 숨겨질 뿐 IsChecked 는 유지된다.
+    // 실행 단계·전체 선택은 반드시 이 플래그와 함께 판단해야 숨겨진 xflow/xms/FEX 가 실행되지 않는다.
+    private bool XmsEnabled   => XmsServiceBlock.Visibility   == Visibility.Visible;
+    private bool XflowEnabled => XflowServiceBlock.Visibility == Visibility.Visible;
+    private bool FexEnabled   => FexServiceBlock.Visibility   == Visibility.Visible;
+
+    /// <summary>현재 표시 중인 구성요소에 속한 실행 체크박스 목록</summary>
+    private CheckBox[] ActiveRunChecks()
+    {
+        var list = new List<CheckBox>();
+        if (XmsEnabled)   list.AddRange([BatStopCheck, XmsDbCheck, BatStartCheck]);
+        if (XflowEnabled) list.AddRange([ExeStopCheck, XflowDbCheck, SqlCheck, ExeStartCheck]);
+        if (FexEnabled)   list.AddRange([FexStopCheck, FexStartCheck]);
+        return [.. list];
+    }
+
     private void SetXmsVisible(bool v)
     {
         XmsServiceBlock.Visibility = v ? Visibility.Visible : Visibility.Collapsed;
@@ -572,12 +590,12 @@ public partial class MainWindow : Window
         RestoreFexBtn.Visibility   = v ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void RemoveXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(false);  SaveSettings(); }
-    private void RemoveXflow_Click(object sender, RoutedEventArgs e) { SetXflowVisible(false); SaveSettings(); }
-    private void RemoveFex_Click(object sender, RoutedEventArgs e)   { SetFexVisible(false);   SaveSettings(); }
-    private void RestoreXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(true);   SaveSettings(); }
-    private void RestoreXflow_Click(object sender, RoutedEventArgs e){ SetXflowVisible(true);  SaveSettings(); }
-    private void RestoreFex_Click(object sender, RoutedEventArgs e)  { SetFexVisible(true);    SaveSettings(); }
+    private void RemoveXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(false);  UpdateSelectAllState(); SaveSettings(); }
+    private void RemoveXflow_Click(object sender, RoutedEventArgs e) { SetXflowVisible(false); UpdateSelectAllState(); SaveSettings(); }
+    private void RemoveFex_Click(object sender, RoutedEventArgs e)   { SetFexVisible(false);   UpdateSelectAllState(); SaveSettings(); }
+    private void RestoreXms_Click(object sender, RoutedEventArgs e)  { SetXmsVisible(true);   UpdateSelectAllState(); SaveSettings(); }
+    private void RestoreXflow_Click(object sender, RoutedEventArgs e){ SetXflowVisible(true);  UpdateSelectAllState(); SaveSettings(); }
+    private void RestoreFex_Click(object sender, RoutedEventArgs e)  { SetFexVisible(true);    UpdateSelectAllState(); SaveSettings(); }
 
 
 
@@ -923,7 +941,7 @@ public partial class MainWindow : Window
         Log("════ ① 종료 단계 ════");
         var svc = new ServiceStatusChecker(Log);
 
-        if (BatStopCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+        if (XmsEnabled && BatStopCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
         {
             try
             {
@@ -935,7 +953,7 @@ public partial class MainWindow : Window
         }
         else Log("  xms 서비스 — 건너뜀");
 
-        if (ExeStopCheck.IsChecked == true)
+        if (XflowEnabled && ExeStopCheck.IsChecked == true)
         {
             try
             {
@@ -955,7 +973,7 @@ public partial class MainWindow : Window
         }
         else Log("  xflow — 건너뜀");
 
-        if (FexStopCheck.IsChecked == true)
+        if (FexEnabled && FexStopCheck.IsChecked == true)
         {
             try
             {
@@ -986,7 +1004,7 @@ public partial class MainWindow : Window
     {
         SetStep(2, StepState.Active);
         Log("════ ② xms DB ════");
-        if (XmsDbCheck.IsChecked != true)
+        if (!XmsEnabled || XmsDbCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(2, StepState.Skipped);
@@ -1018,7 +1036,7 @@ public partial class MainWindow : Window
     {
         SetStep(3, StepState.Active);
         Log("════ ③ xflow DB ════");
-        if (XflowDbCheck.IsChecked != true)
+        if (!XflowEnabled || XflowDbCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(3, StepState.Skipped);
@@ -1050,7 +1068,7 @@ public partial class MainWindow : Window
     {
         SetStep(4, StepState.Active);
         Log("════ ④ PostgreSQL SQL ════");
-        if (SqlCheck.IsChecked != true)
+        if (!XflowEnabled || SqlCheck.IsChecked != true)
         {
             Log("  ○ 건너뜀");
             SetStep(4, StepState.Skipped);
@@ -1083,7 +1101,7 @@ public partial class MainWindow : Window
         var svc = new ServiceStatusChecker(Log);
         try
         {
-            if (BatStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
+            if (XmsEnabled && BatStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(BatDir.Text))
             {
                 Log("  xms service start");
                 await cmd.RunAsync(BatDir.Text, @".\xms.exe service start", timeoutMs: 30_000);
@@ -1091,7 +1109,7 @@ public partial class MainWindow : Window
             }
             else Log("  xms 서비스 — 건너뜀");
 
-            if (ExeStartCheck.IsChecked == true)
+            if (XflowEnabled && ExeStartCheck.IsChecked == true)
             {
                 if (XflowSvcRadio.IsChecked == true && !string.IsNullOrWhiteSpace(XflowSvcDir.Text))
                 {
@@ -1108,7 +1126,7 @@ public partial class MainWindow : Window
             }
             else Log("  xflow — 건너뜀");
 
-            if (FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_fexDir))
+            if (FexEnabled && FexStartCheck.IsChecked == true && !string.IsNullOrWhiteSpace(_fexDir))
             {
                 // 이미 실행 중이면 스킵
                 var existing = Process.GetProcessesByName("Fex Hub");
@@ -1241,19 +1259,13 @@ public partial class MainWindow : Window
 
     private void SelectAllCheck_Click(object sender, RoutedEventArgs e)
     {
-        // 클릭 시 indeterminate → checked 로 강제 (토글: 전체체크 ↔ 전체해제)
+        // IsThreeState=False 라 클릭은 체크 ↔ 해제만 오간다 (중간 상태에서 클릭하면 전체 체크).
+        // 중간 상태(null)는 UpdateSelectAllState 가 코드로만 설정한다
         bool v = SelectAllCheck.IsChecked == true;
 
         _suppressSelectAll = true;
-        BatStopCheck.IsChecked   = v;
-        ExeStopCheck.IsChecked   = v;
-        FexStopCheck.IsChecked   = v;
-        XmsDbCheck.IsChecked     = v;
-        XflowDbCheck.IsChecked   = v;
-        SqlCheck.IsChecked       = v;
-        BatStartCheck.IsChecked  = v;
-        ExeStartCheck.IsChecked  = v;
-        FexStartCheck.IsChecked  = v;
+        // 제거된 구성요소의 체크박스는 건드리지 않는다 (복원 시 이전 상태 유지)
+        foreach (var cb in ActiveRunChecks()) cb.IsChecked = v;
         foreach (var p in _extraPrograms) { p.StopEnabled = v; p.StartEnabled = v; }
         _suppressSelectAll = false;
     }
@@ -1264,16 +1276,32 @@ public partial class MainWindow : Window
         UpdateSelectAllState();
     }
 
+    /// <summary>추가 프로그램 항목의 StartEnabled/StopEnabled 변경을 전체 선택 집계에 연결합니다.</summary>
+    private void RehookRunFlags()
+    {
+        foreach (var p in _extraPrograms)
+        {
+            p.PropertyChanged -= RunFlag_Changed;   // 중복 구독 방지
+            p.PropertyChanged += RunFlag_Changed;
+        }
+        if (IsLoaded && !_suppressSelectAll) UpdateSelectAllState();   // 항목 추가/제거 자체도 집계에 영향
+    }
+
+    private void RunFlag_Changed(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(ExtraProgram.StartEnabled) or nameof(ExtraProgram.StopEnabled))) return;
+        if (_suppressSelectAll || !IsLoaded) return;
+        UpdateSelectAllState();
+    }
+
     private void UpdateSelectAllState()
     {
         // 숨겨진(제거된) 구성요소 체크박스는 집계에서 제외
-        var visible = new[] {
-            BatStopCheck,  ExeStopCheck,  FexStopCheck,
-            XmsDbCheck,    XflowDbCheck,  SqlCheck,
-            BatStartCheck, ExeStartCheck, FexStartCheck,
-        }.Where(cb => cb.Visibility == Visibility.Visible).ToArray();
-
-        bool?[] states = visible.Select(cb => cb.IsChecked).ToArray();
+        // (DB/SQL 체크박스는 부모 GroupBox 만 숨겨지므로 자체 Visibility 로는 판단할 수 없다)
+        // 추가 프로그램의 시작/종료 체크도 함께 집계
+        bool?[] states = ActiveRunChecks().Select(cb => cb.IsChecked)
+            .Concat(_extraPrograms.SelectMany(p => new bool?[] { p.StopEnabled, p.StartEnabled }))
+            .ToArray();
         bool allOn  = states.All(s => s == true);
         bool allOff = states.All(s => s != true);
 

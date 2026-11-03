@@ -726,7 +726,7 @@
                                    Foreground="#8B949E" VerticalAlignment="Center"/>
                         <CheckBox x:Name="SelectAllCheck"
                                   DockPanel.Dock="Right"
-                                  IsThreeState="True"
+                                  IsThreeState="False"
                                   HorizontalAlignment="Right"
                                   VerticalAlignment="Center"
                                   Click="SelectAllCheck_Click">
